@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../bloc/benchmark_bloc.dart';
-import '../../bloc/benchmark_event.dart';
-import '../../bloc/benchmark_state.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:moviedb_benchmark_bloc/features/benchmark/bloc/benchmark_bloc.dart';
+import 'package:moviedb_benchmark_bloc/features/benchmark/bloc/benchmark_event.dart';
+import 'package:moviedb_benchmark_bloc/features/benchmark/bloc/benchmark_state.dart';
 
 class BenchmarkControls extends StatelessWidget {
   final String scenarioId;

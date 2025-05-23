@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../core/api/tmdb_api_client.dart';
+import 'package:moviedb_benchmark_bloc/core/api/tmdb_api__client.dart';
 import '../../../core/api/api_constants.dart';
 import 'benchmark_event.dart';
 import 'benchmark_state.dart';
@@ -79,7 +79,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     // S02: Przewijanie z doładowywaniem
     _currentPage = 1;
     final initialMovies = await apiClient.getPopularMovies(page: _currentPage);
-    
+
     emit(state.copyWith(
       status: BenchmarkStatus.running,
       movies: initialMovies,
@@ -111,10 +111,10 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     // Symulacja filtrowania i sortowania
     await Future.delayed(const Duration(milliseconds: 100));
     add(const FilterMovies(genreIds: [28, 12])); // Action, Adventure
-    
+
     await Future.delayed(const Duration(milliseconds: 100));
     add(const SortMovies(byReleaseDate: true));
-    
+
     await Future.delayed(const Duration(milliseconds: 100));
     add(BenchmarkCompleted());
   }
@@ -134,7 +134,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       await Future.delayed(const Duration(milliseconds: 500));
       add(ToggleViewMode());
     }
-    
+
     add(BenchmarkCompleted());
   }
 
@@ -151,13 +151,13 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     // Symulacja kaskadowych zmian
     await Future.delayed(const Duration(milliseconds: 500));
     add(ToggleAccessibilityMode());
-    
+
     // Rozwiń kilka filmów
     for (int i = 0; i < 10 && i < movies.length; i++) {
       await Future.delayed(const Duration(milliseconds: 100));
       add(ToggleMovieExpanded(movieId: movies[i].id));
     }
-    
+
     add(BenchmarkCompleted());
   }
 
@@ -168,7 +168,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     _currentPage++;
     final newMovies = await apiClient.getPopularMovies(page: _currentPage);
     final allMovies = [...state.movies, ...newMovies];
-    
+
     emit(state.copyWith(
       movies: allMovies,
       filteredMovies: allMovies,
@@ -178,9 +178,10 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onFilterMovies(FilterMovies event, Emitter<BenchmarkState> emit) {
     final filtered = state.movies
-        .where((movie) => movie.genreIds.any((id) => event.genreIds.contains(id)))
+        .where(
+            (movie) => movie.genreIds.any((id) => event.genreIds.contains(id)))
         .toList();
-    
+
     emit(state.copyWith(filteredMovies: filtered));
   }
 
@@ -191,7 +192,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     } else {
       sorted.sort((a, b) => b.voteAverage.compareTo(a.voteAverage));
     }
-    
+
     emit(state.copyWith(filteredMovies: sorted));
   }
 
@@ -214,7 +215,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     } else {
       expandedMovies.add(event.movieId);
     }
-    
+
     emit(state.copyWith(expandedMovies: expandedMovies));
   }
 

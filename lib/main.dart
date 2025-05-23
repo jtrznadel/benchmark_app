@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'core/api/tmdb_api_client.dart';
+import 'package:moviedb_benchmark_bloc/core/api/tmdb_api__client.dart';
+import 'package:moviedb_benchmark_bloc/features/theme/bloc/theme_state.dart';
 import 'features/home/bloc/home_bloc.dart';
 import 'features/home/presentation/pages/home_page.dart';
 import 'features/theme/bloc/theme_bloc.dart';

@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../../../core/models/movie.dart';
+import 'package:moviedb_benchmark_bloc/core/api/models/movie.dart';
 
 enum BenchmarkStatus {
   initial,

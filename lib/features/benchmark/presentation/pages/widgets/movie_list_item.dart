@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../../core/models/movie.dart';
-import '../../../../core/api/api_constants.dart';
+import 'package:moviedb_benchmark_bloc/core/api/api_constants.dart';
+import 'package:moviedb_benchmark_bloc/core/api/models/movie.dart';
 
 class MovieListItem extends StatelessWidget {
   final Movie movie;

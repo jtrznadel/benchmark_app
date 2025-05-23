@@ -1,5 +1,4 @@
 import 'package:equatable/equatable.dart';
-import '../../../core/models/movie.dart';
 
 abstract class BenchmarkEvent extends Equatable {
   const BenchmarkEvent();

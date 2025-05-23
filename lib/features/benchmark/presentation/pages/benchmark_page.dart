@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/api/tmdb_api_client.dart';
+import 'package:moviedb_benchmark_bloc/core/api/tmdb_api__client.dart';
+import 'package:moviedb_benchmark_bloc/features/benchmark/presentation/pages/widgets/benchmark_controls.dart';
+import 'package:moviedb_benchmark_bloc/features/benchmark/presentation/pages/widgets/movie_grid_item.dart';
+import 'package:moviedb_benchmark_bloc/features/benchmark/presentation/pages/widgets/movie_list_item.dart';
+
 import '../../../theme/bloc/theme_bloc.dart';
 import '../../../theme/bloc/theme_event.dart';
 import '../../bloc/benchmark_bloc.dart';
 import '../../bloc/benchmark_event.dart';
 import '../../bloc/benchmark_state.dart';
-import '../widgets/movie_list_item.dart';
-import '../widgets/movie_grid_item.dart';
-import '../widgets/benchmark_controls.dart';
 
 class BenchmarkPage extends StatelessWidget {
   final String scenarioId;
@@ -163,14 +164,14 @@ class BenchmarkPage extends StatelessWidget {
         itemCount: state.filteredMovies.length,
         itemBuilder: (context, index) {
           final movie = state.filteredMovies[index];
-          
+
           // Dla S02 - sprawdź czy trzeba załadować więcej
           if (state.scenarioId == 'S02' &&
               index == state.filteredMovies.length - 5 &&
               state.loadedCount < state.dataSize) {
             context.read<BenchmarkBloc>().add(LoadMoreMovies());
           }
-          
+
           return MovieListItem(
             movie: movie,
             isExpanded: state.expandedMovies.contains(movie.id),

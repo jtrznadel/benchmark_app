@@ -1,5 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../core/theme/app_theme.dart';
+import 'package:moviedb_benchmark_bloc/core/api/theme/app_theme.dart';
 import 'theme_event.dart';
 import 'theme_state.dart';
 

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:moviedb_benchmark_bloc/features/home/presentation/pages/widgets/scenario_selector.dart';
 import '../../bloc/home_bloc.dart';
 import '../../bloc/home_event.dart';
 import '../../bloc/home_state.dart';
-import '../widgets/scenario_selector.dart';
 import '../../../benchmark/presentation/pages/benchmark_page.dart';
 
 class HomePage extends StatelessWidget {
