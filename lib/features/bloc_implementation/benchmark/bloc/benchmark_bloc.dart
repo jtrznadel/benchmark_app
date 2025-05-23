@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:moviedb_benchmark_bloc/core/api/tmdb_api__client.dart';
-import '../../../core/api/api_constants.dart';
+import '../../../../core/api/tmdb_api_client.dart';
+import '../../../../utils/performance_logger.dart';
 import 'benchmark_event.dart';
 import 'benchmark_state.dart';
 
@@ -64,7 +64,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
   }
 
   Future<void> _runScenario1(int dataSize, Emitter<BenchmarkState> emit) async {
-    // S01: Preloading danych
+    //Preloading danych
     final movies = await apiClient.loadAllMovies(totalItems: dataSize);
     emit(state.copyWith(
       status: BenchmarkStatus.completed,
@@ -76,7 +76,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
   }
 
   Future<void> _runScenario2(int dataSize, Emitter<BenchmarkState> emit) async {
-    // S02: Przewijanie z doładowywaniem
+    //Przewijanie z doładowywaniem
     _currentPage = 1;
     final initialMovies = await apiClient.getPopularMovies(page: _currentPage);
 
@@ -88,7 +88,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       isAutoScrolling: true,
     ));
 
-    // Rozpocznij automatyczne przewijanie
+    //automatyczne przewijanie
     _autoScrollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
       if (state.loadedCount < dataSize) {
         add(AutoScrollTick());
@@ -99,7 +99,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
   }
 
   Future<void> _runScenario3(int dataSize, Emitter<BenchmarkState> emit) async {
-    // S03: Lokalne filtrowanie
+    //Lokalne filtrowanie
     final movies = await apiClient.loadAllMovies(totalItems: dataSize);
     emit(state.copyWith(
       status: BenchmarkStatus.running,
@@ -108,7 +108,6 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       loadedCount: movies.length,
     ));
 
-    // Symulacja filtrowania i sortowania
     await Future.delayed(const Duration(milliseconds: 100));
     add(const FilterMovies(genreIds: [28, 12])); // Action, Adventure
 
@@ -120,7 +119,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
   }
 
   Future<void> _runScenario4(int dataSize, Emitter<BenchmarkState> emit) async {
-    // S04: Przełączanie widoku list/grid
+    //Przełączanie widoku list/grid
     final movies = await apiClient.loadAllMovies(totalItems: dataSize);
     emit(state.copyWith(
       status: BenchmarkStatus.running,
@@ -129,7 +128,6 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       loadedCount: movies.length,
     ));
 
-    // Symulacja przełączania widoków
     for (int i = 0; i < 5; i++) {
       await Future.delayed(const Duration(milliseconds: 500));
       add(ToggleViewMode());
@@ -139,7 +137,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
   }
 
   Future<void> _runScenario5(int dataSize, Emitter<BenchmarkState> emit) async {
-    // S05: Wielopoziomowa aktualizacja stanu
+    //Wielopoziomowa aktualizacja stanu
     final movies = await apiClient.loadAllMovies(totalItems: dataSize);
     emit(state.copyWith(
       status: BenchmarkStatus.running,
@@ -148,11 +146,9 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       loadedCount: movies.length,
     ));
 
-    // Symulacja kaskadowych zmian
     await Future.delayed(const Duration(milliseconds: 500));
     add(ToggleAccessibilityMode());
 
-    // Rozwiń kilka filmów
     for (int i = 0; i < 10 && i < movies.length; i++) {
       await Future.delayed(const Duration(milliseconds: 100));
       add(ToggleMovieExpanded(movieId: movies[i].id));
@@ -228,9 +224,19 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
   void _onBenchmarkCompleted(
       BenchmarkCompleted event, Emitter<BenchmarkState> emit) {
     _autoScrollTimer?.cancel();
+    final endTime = DateTime.now();
+    final duration = endTime.difference(state.startTime!);
+    
+    PerformanceLogger.logTestResult(
+      library: 'BLoC',
+      scenarioId: state.scenarioId,
+      dataSize: state.dataSize,
+      executionTime: duration,
+    );
+    
     emit(state.copyWith(
       status: BenchmarkStatus.completed,
-      endTime: DateTime.now(),
+      endTime: endTime,
       isAutoScrolling: false,
     ));
   }

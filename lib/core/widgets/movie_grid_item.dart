@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:moviedb_benchmark_bloc/core/api/api_constants.dart';
-import 'package:moviedb_benchmark_bloc/core/api/models/movie.dart';
+import '../models/movie.dart';
+import '../api/api_constants.dart';
 
 class MovieGridItem extends StatelessWidget {
   final Movie movie;
   final bool isExpanded;
   final VoidCallback onTap;
+  final bool isAccessibilityMode;
 
   const MovieGridItem({
     super.key,
     required this.movie,
     required this.isExpanded,
     required this.onTap,
+    this.isAccessibilityMode = false,
   });
 
   @override
@@ -47,13 +49,15 @@ class MovieGridItem extends StatelessWidget {
             Expanded(
               flex: isExpanded ? 2 : 1,
               child: Padding(
-                padding: const EdgeInsets.all(8.0),
+                padding: EdgeInsets.all(isAccessibilityMode ? 12.0 : 8.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       movie.title,
-                      style: Theme.of(context).textTheme.titleSmall,
+                      style: isAccessibilityMode
+                          ? Theme.of(context).textTheme.titleMedium
+                          : Theme.of(context).textTheme.titleSmall,
                       maxLines: isExpanded ? 2 : 1,
                       overflow: TextOverflow.ellipsis,
                     ),

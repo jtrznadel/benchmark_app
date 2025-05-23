@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:moviedb_benchmark_bloc/core/api/models/movie.dart';
+import '../models/movie.dart';
 import 'api_constants.dart';
 
 class TmdbApiClient {

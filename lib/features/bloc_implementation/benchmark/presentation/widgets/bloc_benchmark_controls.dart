@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:moviedb_benchmark_bloc/features/benchmark/bloc/benchmark_bloc.dart';
-import 'package:moviedb_benchmark_bloc/features/benchmark/bloc/benchmark_event.dart';
-import 'package:moviedb_benchmark_bloc/features/benchmark/bloc/benchmark_state.dart';
+import '../../bloc/benchmark_bloc.dart';
+import '../../bloc/benchmark_event.dart';
+import '../../bloc/benchmark_state.dart';
 
-class BenchmarkControls extends StatelessWidget {
+class BlocBenchmarkControls extends StatelessWidget {
   final String scenarioId;
   final BenchmarkState state;
 
-  const BenchmarkControls({
+  const BlocBenchmarkControls({
     super.key,
     required this.scenarioId,
     required this.state,
@@ -18,7 +18,7 @@ class BenchmarkControls extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(8),
-      color: Colors.grey[200],
+      color: Colors.blue.withOpacity(0.1),
       child: Column(
         children: [
           Row(
@@ -35,9 +35,10 @@ class BenchmarkControls extends StatelessWidget {
                 ElevatedButton(
                   onPressed: () {
                     context.read<BenchmarkBloc>().add(
-                          const FilterMovies(genreIds: [28]), // Action
+                          const FilterMovies(genreIds: [28]), // action
                         );
                   },
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
                   child: const Text('Filtruj: Akcja'),
                 ),
                 const SizedBox(width: 8),
@@ -47,6 +48,7 @@ class BenchmarkControls extends StatelessWidget {
                           const SortMovies(byReleaseDate: true),
                         );
                   },
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
                   child: const Text('Sortuj: Data'),
                 ),
               ],
@@ -56,6 +58,7 @@ class BenchmarkControls extends StatelessWidget {
               onPressed: () {
                 context.read<BenchmarkBloc>().add(ToggleAccessibilityMode());
               },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
               child: Text(
                 state.isAccessibilityMode
                     ? 'Wyłącz tryb dostępności'

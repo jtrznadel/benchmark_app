@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:moviedb_benchmark_bloc/features/home/presentation/pages/widgets/scenario_selector.dart';
+import '../widgets/bloc_scenario_selector.dart';
 import '../../bloc/home_bloc.dart';
 import '../../bloc/home_event.dart';
 import '../../bloc/home_state.dart';
-import '../../../benchmark/presentation/pages/benchmark_page.dart';
+import '../../../benchmark/presentation/pages/bloc_benchmark_page.dart';
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+class BlocHomePage extends StatelessWidget {
+  const BlocHomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('MovieDB Benchmark - BLoC'),
+        backgroundColor: Colors.blue,
       ),
       body: BlocBuilder<HomeBloc, HomeState>(
         builder: (context, state) {
@@ -27,7 +28,7 @@ class HomePage extends StatelessWidget {
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 20),
-                ScenarioSelector(
+                BlocScenarioSelector(
                   selectedScenario: state.selectedScenario,
                   dataSize: state.dataSize,
                   onScenarioSelected: (scenario, size) {
@@ -46,7 +47,7 @@ class HomePage extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => BenchmarkPage(
+                              builder: (context) => BlocBenchmarkPage(
                                 scenarioId: state.selectedScenario!,
                                 dataSize: state.dataSize,
                               ),
@@ -56,6 +57,7 @@ class HomePage extends StatelessWidget {
                       : null,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.all(16),
+                    backgroundColor: Colors.blue,
                   ),
                   child: const Text(
                     'Start testu',

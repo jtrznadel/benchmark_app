@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-class ScenarioSelector extends StatelessWidget {
+class BlocScenarioSelector extends StatelessWidget {
   final String? selectedScenario;
   final int dataSize;
   final Function(String, int) onScenarioSelected;
 
-  const ScenarioSelector({
+  const BlocScenarioSelector({
     super.key,
     required this.selectedScenario,
     required this.dataSize,
@@ -65,7 +65,7 @@ class ScenarioSelector extends StatelessWidget {
         title: Text('$id: $title'),
         subtitle: Text(description),
         onTap: () => onScenarioSelected(id, dataSize),
-        trailing: isSelected ? const Icon(Icons.check_circle) : null,
+        trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.blue) : null,
       ),
     );
   }
@@ -75,6 +75,7 @@ class ScenarioSelector extends StatelessWidget {
     return ChoiceChip(
       label: Text('$size'),
       selected: isSelected,
+      selectedColor: Colors.blue.withOpacity(0.3),
       onSelected: (selected) {
         if (selected && selectedScenario != null) {
           onScenarioSelected(selectedScenario!, size);

@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:moviedb_benchmark_bloc/core/api/api_constants.dart';
-import 'package:moviedb_benchmark_bloc/core/api/models/movie.dart';
+import '../models/movie.dart';
+import '../api/api_constants.dart';
 
 class MovieListItem extends StatelessWidget {
   final Movie movie;
   final bool isExpanded;
   final VoidCallback onTap;
+  final bool isAccessibilityMode;
 
   const MovieListItem({
     super.key,
     required this.movie,
     required this.isExpanded,
     required this.onTap,
+    this.isAccessibilityMode = false,
   });
 
   @override
@@ -21,7 +23,7 @@ class MovieListItem extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: EdgeInsets.all(isAccessibilityMode ? 12.0 : 8.0),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -50,7 +52,9 @@ class MovieListItem extends StatelessWidget {
                   children: [
                     Text(
                       movie.title,
-                      style: Theme.of(context).textTheme.titleMedium,
+                      style: isAccessibilityMode
+                          ? Theme.of(context).textTheme.titleLarge
+                          : Theme.of(context).textTheme.titleMedium,
                       maxLines: isExpanded ? null : 1,
                       overflow: isExpanded ? null : TextOverflow.ellipsis,
                     ),
@@ -74,7 +78,9 @@ class MovieListItem extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         movie.overview,
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        style: isAccessibilityMode
+                            ? Theme.of(context).textTheme.bodyLarge
+                            : Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
                   ],

@@ -1,21 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:moviedb_benchmark_bloc/core/api/tmdb_api__client.dart';
-import 'package:moviedb_benchmark_bloc/features/benchmark/presentation/pages/widgets/benchmark_controls.dart';
-import 'package:moviedb_benchmark_bloc/features/benchmark/presentation/pages/widgets/movie_grid_item.dart';
-import 'package:moviedb_benchmark_bloc/features/benchmark/presentation/pages/widgets/movie_list_item.dart';
-
+import '../../../../../core/api/tmdb_api_client.dart';
+import '../../../../../core/widgets/movie_list_item.dart';
+import '../../../../../core/widgets/movie_grid_item.dart';
+import '../widgets/bloc_benchmark_controls.dart';
 import '../../../theme/bloc/theme_bloc.dart';
 import '../../../theme/bloc/theme_event.dart';
 import '../../bloc/benchmark_bloc.dart';
 import '../../bloc/benchmark_event.dart';
 import '../../bloc/benchmark_state.dart';
 
-class BenchmarkPage extends StatelessWidget {
+class BlocBenchmarkPage extends StatelessWidget {
   final String scenarioId;
   final int dataSize;
 
-  const BenchmarkPage({
+  const BlocBenchmarkPage({
     super.key,
     required this.scenarioId,
     required this.dataSize,
@@ -43,13 +42,15 @@ class BenchmarkPage extends StatelessWidget {
                   'Test zakończony! Czas: ${duration.inSeconds}.${duration.inMilliseconds % 1000} s',
                 ),
                 duration: const Duration(seconds: 5),
+                backgroundColor: Colors.blue,
               ),
             );
           }
         },
         child: Scaffold(
           appBar: AppBar(
-            title: Text('Benchmark: $scenarioId'),
+            title: Text('BLoC Benchmark: $scenarioId'),
+            backgroundColor: Colors.blue,
             actions: [
               BlocBuilder<BenchmarkBloc, BenchmarkState>(
                 builder: (context, state) {
@@ -78,7 +79,7 @@ class BenchmarkPage extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(),
+                      CircularProgressIndicator(color: Colors.blue),
                       SizedBox(height: 16),
                       Text('Ładowanie danych...'),
                     ],
@@ -97,7 +98,7 @@ class BenchmarkPage extends StatelessWidget {
 
               return Column(
                 children: [
-                  BenchmarkControls(
+                  BlocBenchmarkControls(
                     scenarioId: scenarioId,
                     state: state,
                   ),
@@ -120,7 +121,6 @@ class BenchmarkPage extends StatelessWidget {
 
     final scrollController = ScrollController();
 
-    // Automatyczne przewijanie dla S02
     if (state.scenarioId == 'S02' && state.isAutoScrolling) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (scrollController.hasClients) {
@@ -149,6 +149,7 @@ class BenchmarkPage extends StatelessWidget {
           return MovieGridItem(
             movie: movie,
             isExpanded: state.expandedMovies.contains(movie.id),
+            isAccessibilityMode: state.isAccessibilityMode,
             onTap: () {
               context.read<BenchmarkBloc>().add(
                     ToggleMovieExpanded(movieId: movie.id),
@@ -165,7 +166,6 @@ class BenchmarkPage extends StatelessWidget {
         itemBuilder: (context, index) {
           final movie = state.filteredMovies[index];
 
-          // Dla S02 - sprawdź czy trzeba załadować więcej
           if (state.scenarioId == 'S02' &&
               index == state.filteredMovies.length - 5 &&
               state.loadedCount < state.dataSize) {
@@ -175,6 +175,7 @@ class BenchmarkPage extends StatelessWidget {
           return MovieListItem(
             movie: movie,
             isExpanded: state.expandedMovies.contains(movie.id),
+            isAccessibilityMode: state.isAccessibilityMode,
             onTap: () {
               context.read<BenchmarkBloc>().add(
                     ToggleMovieExpanded(movieId: movie.id),
