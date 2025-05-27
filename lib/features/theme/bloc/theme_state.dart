@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
-import 'package:moviedb_benchmark_bloc/core/api/theme/app_theme.dart';
+import 'package:moviedb_benchmark/core/theme/app_theme.dart';
 
 class ThemeState extends Equatable {
   final ThemeData themeData;

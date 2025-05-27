@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/api/tmdb_api_client.dart';
+import 'package:moviedb_benchmark/core/api/tmdb_api__client.dart';
 import '../../../../utils/performance_logger.dart';
 import 'benchmark_event.dart';
 import 'benchmark_state.dart';
@@ -226,14 +226,14 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     _autoScrollTimer?.cancel();
     final endTime = DateTime.now();
     final duration = endTime.difference(state.startTime!);
-    
+
     PerformanceLogger.logTestResult(
       library: 'BLoC',
       scenarioId: state.scenarioId,
       dataSize: state.dataSize,
       executionTime: duration,
     );
-    
+
     emit(state.copyWith(
       status: BenchmarkStatus.completed,
       endTime: endTime,

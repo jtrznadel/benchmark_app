@@ -1,9 +1,11 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'dart:async';
-import '../../../../core/models/movie.dart';
-import '../../../../core/api/tmdb_api_client.dart';
-import '../../../../utils/performance_logger.dart';
-import '../../../getx_implementation/theme/controllers/theme_controller.dart';
+
+import 'package:moviedb_benchmark/core/api/tmdb_api__client.dart';
+import 'package:moviedb_benchmark/core/models/movie.dart';
+import 'package:moviedb_benchmark/features/getx_implementation/theme/controllers/theme_controller.dart';
+import 'package:moviedb_benchmark/utils/performance_logger.dart';
 
 enum BenchmarkStatus {
   initial,
@@ -17,8 +19,8 @@ enum BenchmarkStatus {
 enum ViewMode { list, grid }
 
 class BenchmarkController extends GetxController {
-  final TmdbApiClient apiClient = Get.find();
-  
+  final TmdbApiClient apiClient = Get.put(TmdbApiClient());
+
   final status = BenchmarkStatus.initial.obs;
   final movies = <Movie>[].obs;
   final filteredMovies = <Movie>[].obs;
@@ -28,7 +30,7 @@ class BenchmarkController extends GetxController {
   final error = Rx<String?>(null);
   final loadedCount = 0.obs;
   final isAutoScrolling = false.obs;
-  
+
   String scenarioId = '';
   int dataSize = 0;
   DateTime? startTime;
@@ -41,7 +43,7 @@ class BenchmarkController extends GetxController {
     dataSize = size;
     startTime = DateTime.now();
     status.value = BenchmarkStatus.loading;
-    
+
     try {
       switch (scenario) {
         case 'S01':
@@ -79,7 +81,7 @@ class BenchmarkController extends GetxController {
   Future<void> _runScenario2(int size) async {
     _currentPage = 1;
     final initialMovies = await apiClient.getPopularMovies(page: _currentPage);
-    
+
     movies.value = initialMovies;
     filteredMovies.value = initialMovies;
     loadedCount.value = initialMovies.length;
@@ -104,10 +106,10 @@ class BenchmarkController extends GetxController {
 
     await Future.delayed(const Duration(milliseconds: 100));
     filterMovies([28, 12]);
-    
+
     await Future.delayed(const Duration(milliseconds: 100));
     sortMovies(byReleaseDate: true);
-    
+
     await Future.delayed(const Duration(milliseconds: 100));
     completeTest();
   }
@@ -123,7 +125,7 @@ class BenchmarkController extends GetxController {
       await Future.delayed(const Duration(milliseconds: 500));
       toggleViewMode();
     }
-    
+
     completeTest();
   }
 
@@ -136,12 +138,12 @@ class BenchmarkController extends GetxController {
 
     await Future.delayed(const Duration(milliseconds: 500));
     toggleAccessibilityMode();
-    
+
     for (int i = 0; i < 10 && i < movies.length; i++) {
       await Future.delayed(const Duration(milliseconds: 100));
       toggleMovieExpanded(movies[i].id);
     }
-    
+
     completeTest();
   }
 
@@ -172,9 +174,8 @@ class BenchmarkController extends GetxController {
   }
 
   void toggleViewMode() {
-    viewMode.value = viewMode.value == ViewMode.list 
-        ? ViewMode.grid 
-        : ViewMode.list;
+    viewMode.value =
+        viewMode.value == ViewMode.list ? ViewMode.grid : ViewMode.list;
   }
 
   void toggleAccessibilityMode() {
@@ -206,14 +207,14 @@ class BenchmarkController extends GetxController {
 
   void _showCompletionMessage() {
     final duration = endTime!.difference(startTime!);
-    
+
     PerformanceLogger.logTestResult(
       library: 'GetX',
       scenarioId: scenarioId,
       dataSize: dataSize,
       executionTime: duration,
     );
-    
+
     Get.snackbar(
       'Test zakończony',
       'Czas: ${duration.inSeconds}.${duration.inMilliseconds % 1000} s',

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../../core/api/tmdb_api_client.dart';
+import 'package:moviedb_benchmark/core/api/tmdb_api__client.dart';
+import 'package:moviedb_benchmark/features/bloc_implementation/theme/bloc/theme_block.dart';
 import '../../../../../core/widgets/movie_list_item.dart';
 import '../../../../../core/widgets/movie_grid_item.dart';
 import '../widgets/bloc_benchmark_controls.dart';
-import '../../../theme/bloc/theme_bloc.dart';
 import '../../../theme/bloc/theme_event.dart';
 import '../../bloc/benchmark_bloc.dart';
 import '../../bloc/benchmark_event.dart';
@@ -22,10 +22,17 @@ class BlocBenchmarkPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => BenchmarkBloc(
-        apiClient: context.read<TmdbApiClient>(),
-      )..add(StartBenchmark(scenarioId: scenarioId, dataSize: dataSize)),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) => BenchmarkBloc(
+            apiClient: context.read<TmdbApiClient>(),
+          )..add(StartBenchmark(scenarioId: scenarioId, dataSize: dataSize)),
+        ),
+        BlocProvider(
+          create: (context) => ThemeBloc(),
+        ),
+      ],
       child: BlocListener<BenchmarkBloc, BenchmarkState>(
         listener: (context, state) {
           if (state.isAccessibilityMode) {

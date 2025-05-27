@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../controllers/benchmark_controller.dart';
+import 'package:moviedb_benchmark/features/getx_implementation/benchmark/presentation/controllers/benchmark_controller.dart';
 import '../widgets/getx_benchmark_controls.dart';
 import '../../../../../core/widgets/movie_list_item.dart';
 import '../../../../../core/widgets/movie_grid_item.dart';
@@ -18,7 +18,7 @@ class GetXBenchmarkPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(BenchmarkController());
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.startBenchmark(scenarioId, dataSize);
     });
 
@@ -115,11 +115,11 @@ class GetXBenchmarkPage extends StatelessWidget {
           itemBuilder: (context, index) {
             final movie = controller.filteredMovies[index];
             return Obx(() => MovieGridItem(
-              movie: movie,
-              isExpanded: controller.expandedMovies.contains(movie.id),
-              isAccessibilityMode: controller.isAccessibilityMode.value,
-              onTap: () => controller.toggleMovieExpanded(movie.id),
-            ));
+                  movie: movie,
+                  isExpanded: controller.expandedMovies.contains(movie.id),
+                  isAccessibilityMode: controller.isAccessibilityMode.value,
+                  onTap: () => controller.toggleMovieExpanded(movie.id),
+                ));
           },
         );
       } else {
@@ -129,19 +129,19 @@ class GetXBenchmarkPage extends StatelessWidget {
           itemCount: controller.filteredMovies.length,
           itemBuilder: (context, index) {
             final movie = controller.filteredMovies[index];
-            
+
             if (scenarioId == 'S02' &&
                 index == controller.filteredMovies.length - 5 &&
                 controller.loadedCount.value < dataSize) {
               controller.loadMoreMovies();
             }
-            
+
             return Obx(() => MovieListItem(
-              movie: movie,
-              isExpanded: controller.expandedMovies.contains(movie.id),
-              isAccessibilityMode: controller.isAccessibilityMode.value,
-              onTap: () => controller.toggleMovieExpanded(movie.id),
-            ));
+                  movie: movie,
+                  isExpanded: controller.expandedMovies.contains(movie.id),
+                  isAccessibilityMode: controller.isAccessibilityMode.value,
+                  onTap: () => controller.toggleMovieExpanded(movie.id),
+                ));
           },
         );
       }

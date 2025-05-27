@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../widgets/bloc_scenario_selector.dart';
+import 'package:moviedb_benchmark/features/bloc_implementation/home/presentation/pages/widgets/bloc_scenario_selector.dart';
 import '../../bloc/home_bloc.dart';
 import '../../bloc/home_event.dart';
 import '../../bloc/home_state.dart';

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:moviedb_benchmark/features/bloc_implementation/theme/bloc/theme_block.dart';
 import '../../../bloc_implementation/home/presentation/pages/bloc_home_page.dart';
 import '../../../getx_implementation/home/presentation/pages/getx_home_page.dart';
-import '../../../bloc_implementation/theme/bloc/theme_bloc.dart';
 import '../../../bloc_implementation/home/bloc/home_bloc.dart';
 
 class LibrarySelectorPage extends StatelessWidget {
@@ -30,7 +30,8 @@ class LibrarySelectorPage extends StatelessWidget {
               _buildLibraryCard(
                 context,
                 title: 'BLoC',
-                description: 'Business Logic Component\nStrumienie danych, niemutowalne stany',
+                description:
+                    'Business Logic Component\nStrumienie danych, niemutowalne stany',
                 color: Colors.blue,
                 onTap: () => _navigateToBlocImplementation(context),
               ),
@@ -38,7 +39,8 @@ class LibrarySelectorPage extends StatelessWidget {
               _buildLibraryCard(
                 context,
                 title: 'GetX',
-                description: 'Reactive State Management\nReaktywne zmienne, prostota',
+                description:
+                    'Reactive State Management\nReaktywne zmienne, prostota',
                 color: Colors.purple,
                 onTap: () => _navigateToGetXImplementation(context),
               ),

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
-import 'core/api/tmdb_api_client.dart';
-import 'features/home/presentation/pages/library_selector_page.dart';
+import 'package:moviedb_benchmark/core/api/tmdb_api__client.dart';
+import 'package:moviedb_benchmark/features/home/presentation/pages/library_selector.dart';
 
 void main() {
   runApp(const MyApp());
