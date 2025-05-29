@@ -10,7 +10,7 @@ import '../../bloc/benchmark_bloc.dart';
 import '../../bloc/benchmark_event.dart';
 import '../../bloc/benchmark_state.dart';
 
-class BlocBenchmarkPage extends StatelessWidget {
+class BlocBenchmarkPage extends StatefulWidget {
   final String scenarioId;
   final int dataSize;
 
@@ -21,13 +21,35 @@ class BlocBenchmarkPage extends StatelessWidget {
   });
 
   @override
+  State<BlocBenchmarkPage> createState() => _BlocBenchmarkPageState();
+}
+
+class _BlocBenchmarkPageState extends State<BlocBenchmarkPage> {
+  late ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
         BlocProvider(
           create: (context) => BenchmarkBloc(
             apiClient: context.read<TmdbApiClient>(),
-          )..add(StartBenchmark(scenarioId: scenarioId, dataSize: dataSize)),
+          )..add(StartBenchmark(
+              scenarioId: widget.scenarioId, 
+              dataSize: widget.dataSize
+            )),
         ),
         BlocProvider(
           create: (context) => ThemeBloc(),
@@ -41,22 +63,15 @@ class BlocBenchmarkPage extends StatelessWidget {
             context.read<ThemeBloc>().add(DisableAccessibilityTheme());
           }
 
-          if (state.status == BenchmarkStatus.completed) {
-            final duration = state.endTime!.difference(state.startTime!);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Test zakończony! Czas: ${duration.inSeconds}.${duration.inMilliseconds % 1000} s',
-                ),
-                duration: const Duration(seconds: 5),
-                backgroundColor: Colors.blue,
-              ),
-            );
+          if (state.scenarioId == 'S02' && state.isAutoScrolling) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _startAutoScroll();
+            });
           }
         },
         child: Scaffold(
           appBar: AppBar(
-            title: Text('BLoC Benchmark: $scenarioId'),
+            title: Text('BLoC Benchmark: ${widget.scenarioId}'),
             backgroundColor: Colors.blue,
             actions: [
               BlocBuilder<BenchmarkBloc, BenchmarkState>(
@@ -106,7 +121,7 @@ class BlocBenchmarkPage extends StatelessWidget {
               return Column(
                 children: [
                   BlocBenchmarkControls(
-                    scenarioId: scenarioId,
+                    scenarioId: widget.scenarioId,
                     state: state,
                   ),
                   Expanded(
@@ -121,28 +136,29 @@ class BlocBenchmarkPage extends StatelessWidget {
     );
   }
 
+  void _startAutoScroll() {
+    if (!_scrollController.hasClients) return;
+    
+    final double targetPosition = _scrollController.position.maxScrollExtent;
+    final double currentPosition = _scrollController.position.pixels;
+    
+    if (currentPosition < targetPosition) {
+      _scrollController.animateTo(
+        targetPosition,
+        duration: Duration(milliseconds: ((targetPosition - currentPosition) * 3).toInt()),
+        curve: Curves.linear,
+      );
+    }
+  }
+
   Widget _buildMovieView(BuildContext context, BenchmarkState state) {
     if (state.filteredMovies.isEmpty) {
       return const Center(child: Text('Brak filmów do wyświetlenia'));
     }
 
-    final scrollController = ScrollController();
-
-    if (state.scenarioId == 'S02' && state.isAutoScrolling) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (scrollController.hasClients) {
-          scrollController.animateTo(
-            scrollController.position.maxScrollExtent,
-            duration: const Duration(seconds: 2),
-            curve: Curves.linear,
-          );
-        }
-      });
-    }
-
     if (state.viewMode == ViewMode.grid) {
       return GridView.builder(
-        controller: scrollController,
+        controller: _scrollController,
         padding: const EdgeInsets.all(8),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
@@ -167,7 +183,7 @@ class BlocBenchmarkPage extends StatelessWidget {
       );
     } else {
       return ListView.builder(
-        controller: scrollController,
+        controller: _scrollController,
         padding: const EdgeInsets.all(8),
         itemCount: state.filteredMovies.length,
         itemBuilder: (context, index) {

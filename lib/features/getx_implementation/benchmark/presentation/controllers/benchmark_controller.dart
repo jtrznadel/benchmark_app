@@ -5,7 +5,6 @@ import 'dart:async';
 import 'package:moviedb_benchmark/core/api/tmdb_api__client.dart';
 import 'package:moviedb_benchmark/core/models/movie.dart';
 import 'package:moviedb_benchmark/features/getx_implementation/theme/controllers/theme_controller.dart';
-import 'package:moviedb_benchmark/utils/performance_logger.dart';
 
 enum BenchmarkStatus {
   initial,
@@ -37,6 +36,7 @@ class BenchmarkController extends GetxController {
   DateTime? endTime;
   Timer? _autoScrollTimer;
   int _currentPage = 1;
+  bool _isLoadingMore = false;
 
   void startBenchmark(String scenario, int size) async {
     scenarioId = scenario;
@@ -75,7 +75,6 @@ class BenchmarkController extends GetxController {
     loadedCount.value = loadedMovies.length;
     endTime = DateTime.now();
     status.value = BenchmarkStatus.completed;
-    _showCompletionMessage();
   }
 
   Future<void> _runScenario2(int size) async {
@@ -87,14 +86,6 @@ class BenchmarkController extends GetxController {
     loadedCount.value = initialMovies.length;
     status.value = BenchmarkStatus.running;
     isAutoScrolling.value = true;
-
-    _autoScrollTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
-      if (loadedCount.value < size) {
-        autoScrollTick();
-      } else {
-        completeTest();
-      }
-    });
   }
 
   Future<void> _runScenario3(int size) async {
@@ -148,13 +139,23 @@ class BenchmarkController extends GetxController {
   }
 
   Future<void> loadMoreMovies() async {
-    if (loadedCount.value >= dataSize) return;
-
+    if (_isLoadingMore || loadedCount.value >= dataSize) return;
+    
+    _isLoadingMore = true;
     _currentPage++;
-    final newMovies = await apiClient.getPopularMovies(page: _currentPage);
-    movies.addAll(newMovies);
-    filteredMovies.addAll(newMovies);
-    loadedCount.value = movies.length;
+    
+    try {
+      final newMovies = await apiClient.getPopularMovies(page: _currentPage);
+      movies.addAll(newMovies);
+      filteredMovies.addAll(newMovies);
+      loadedCount.value = movies.length;
+      
+      if (loadedCount.value >= dataSize) {
+        completeTest();
+      }
+    } finally {
+      _isLoadingMore = false;
+    }
   }
 
   void filterMovies(List<int> genreIds) {
@@ -191,38 +192,11 @@ class BenchmarkController extends GetxController {
     }
   }
 
-  void autoScrollTick() {
-    if (loadedCount.value < dataSize) {
-      loadMoreMovies();
-    }
-  }
-
   void completeTest() {
     _autoScrollTimer?.cancel();
     endTime = DateTime.now();
     status.value = BenchmarkStatus.completed;
     isAutoScrolling.value = false;
-    _showCompletionMessage();
-  }
-
-  void _showCompletionMessage() {
-    final duration = endTime!.difference(startTime!);
-
-    PerformanceLogger.logTestResult(
-      library: 'GetX',
-      scenarioId: scenarioId,
-      dataSize: dataSize,
-      executionTime: duration,
-    );
-
-    Get.snackbar(
-      'Test zakończony',
-      'Czas: ${duration.inSeconds}.${duration.inMilliseconds % 1000} s',
-      duration: const Duration(seconds: 5),
-      snackPosition: SnackPosition.BOTTOM,
-      backgroundColor: Colors.purple,
-      colorText: Colors.white,
-    );
   }
 
   @override
