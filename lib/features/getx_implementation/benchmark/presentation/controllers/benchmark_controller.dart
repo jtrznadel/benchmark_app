@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:moviedb_benchmark/core/api/tmdb_api__client.dart';
 import 'package:moviedb_benchmark/core/models/movie.dart';
+import 'package:moviedb_benchmark/core/utils/memory_monitor.dart';
 import 'package:moviedb_benchmark/features/getx_implementation/theme/controllers/theme_controller.dart';
 
 enum BenchmarkStatus {
@@ -37,11 +38,40 @@ class BenchmarkController extends GetxController {
   int _currentPage = 1;
   bool isLoadingMore = false;
 
+  @override
+  void onClose() {
+    MemoryMonitor.stopMonitoring();
+    super.onClose();
+  }
+
+  void completeTest() {
+    endTime = DateTime.now();
+    status.value = BenchmarkStatus.completed;
+    isAutoScrolling.value = false;
+
+    _completeTestWithMemoryReport();
+  }
+
+  void _completeTestWithMemoryReport() {
+    MemoryMonitor.stopMonitoring();
+    final report = MemoryMonitor.generateReport();
+    _saveMemoryReport(report);
+  }
+
+  void _saveMemoryReport(MemoryReport report) {
+    print('=== GetX Memory Report for $scenarioId ===');
+    print(report.toFormattedString());
+    print('Test completed at: ${DateTime.now()}');
+  }
+
   void startBenchmark(String scenario, int size) async {
     scenarioId = scenario;
     dataSize = size;
     startTime = DateTime.now();
     status.value = BenchmarkStatus.loading;
+    MemoryMonitor.stopMonitoring();
+
+    MemoryMonitor.startMonitoring(interval: const Duration(milliseconds: 100));
 
     try {
       switch (scenario) {
@@ -64,6 +94,7 @@ class BenchmarkController extends GetxController {
     } catch (e) {
       status.value = BenchmarkStatus.error;
       error.value = e.toString();
+      _completeTestWithMemoryReport();
     }
   }
 
@@ -74,6 +105,7 @@ class BenchmarkController extends GetxController {
     loadedCount.value = loadedMovies.length;
     endTime = DateTime.now();
     status.value = BenchmarkStatus.completed;
+    completeTest();
   }
 
   Future<void> _runScenario2(int size) async {
@@ -155,10 +187,12 @@ class BenchmarkController extends GetxController {
 
       if (allMovies.length >= dataSize) {
         isAutoScrolling.value = false;
+        completeTest();
       }
     } catch (e) {
       error.value = e.toString();
       status.value = BenchmarkStatus.error;
+      _completeTestWithMemoryReport();
     } finally {
       isLoadingMore = false;
     }
@@ -196,11 +230,5 @@ class BenchmarkController extends GetxController {
     } else {
       expandedMovies.add(movieId);
     }
-  }
-
-  void completeTest() {
-    endTime = DateTime.now();
-    status.value = BenchmarkStatus.completed;
-    isAutoScrolling.value = false;
   }
 }

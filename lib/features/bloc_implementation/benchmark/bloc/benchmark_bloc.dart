@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:moviedb_benchmark/core/api/tmdb_api__client.dart';
+import 'package:moviedb_benchmark/core/utils/memory_monitor.dart';
 import 'benchmark_event.dart';
 import 'benchmark_state.dart';
 
@@ -28,6 +29,9 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       dataSize: event.dataSize,
       startTime: DateTime.now(),
     ));
+    MemoryMonitor.stopMonitoring();
+
+    MemoryMonitor.startMonitoring(interval: const Duration(milliseconds: 200));
 
     try {
       switch (event.scenarioId) {
@@ -52,6 +56,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
         status: BenchmarkStatus.error,
         error: e.toString(),
       ));
+      _completeTestWithMemoryReport();
     }
   }
 
@@ -64,6 +69,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       loadedCount: movies.length,
       endTime: DateTime.now(),
     ));
+    add(BenchmarkCompleted());
   }
 
   Future<void> _runScenario2(int dataSize, Emitter<BenchmarkState> emit) async {
@@ -77,6 +83,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       loadedCount: initialMovies.length,
       isAutoScrolling: true,
     ));
+    add(BenchmarkCompleted());
   }
 
   Future<void> _runScenario3(int dataSize, Emitter<BenchmarkState> emit) async {
@@ -212,5 +219,27 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       endTime: DateTime.now(),
       isAutoScrolling: false,
     ));
+    _completeTestWithMemoryReport();
+  }
+
+  void _completeTestWithMemoryReport() {
+    MemoryMonitor.stopMonitoring();
+    final report = MemoryMonitor.generateReport();
+    _saveMemoryReport(report);
+  }
+
+  void _saveMemoryReport(MemoryReport report) {
+    print('=== BLoC Memory Report for ${state.scenarioId} ===');
+    print(report.toFormattedString());
+  }
+
+  @override
+  Future<void> close() {
+    MemoryMonitor.stopMonitoring();
+    final report = MemoryMonitor.generateReport();
+    if (report.samples > 0) {
+      _saveMemoryReport(report);
+    }
+    return super.close();
   }
 }

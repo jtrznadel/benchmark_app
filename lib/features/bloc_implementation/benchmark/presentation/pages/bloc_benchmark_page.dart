@@ -1,8 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:async';
 import 'package:moviedb_benchmark/core/api/tmdb_api__client.dart';
+import 'package:moviedb_benchmark/core/utils/memory_monitor.dart';
 import 'package:moviedb_benchmark/features/bloc_implementation/theme/bloc/theme_block.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../../core/widgets/movie_list_item.dart';
 import '../../../../../core/widgets/movie_grid_item.dart';
 import '../widgets/bloc_benchmark_controls.dart';
@@ -69,6 +73,7 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
   @override
   void initState() {
     super.initState();
+
     _scrollController = ScrollController();
   }
 
@@ -98,7 +103,6 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
       final currentPosition = _scrollController.position.pixels;
       final maxScroll = _scrollController.position.maxScrollExtent;
 
-      // Przewijamy o 100 pikseli na raz
       final newPosition = currentPosition + 100;
 
       if (newPosition >= maxScroll && state.loadedCount >= widget.dataSize) {
