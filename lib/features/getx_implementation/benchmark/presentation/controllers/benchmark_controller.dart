@@ -34,9 +34,8 @@ class BenchmarkController extends GetxController {
   int dataSize = 0;
   DateTime? startTime;
   DateTime? endTime;
-  Timer? _autoScrollTimer;
   int _currentPage = 1;
-  bool _isLoadingMore = false;
+  bool isLoadingMore = false;
 
   void startBenchmark(String scenario, int size) async {
     scenarioId = scenario;
@@ -139,22 +138,29 @@ class BenchmarkController extends GetxController {
   }
 
   Future<void> loadMoreMovies() async {
-    if (_isLoadingMore || loadedCount.value >= dataSize) return;
-    
-    _isLoadingMore = true;
+    if (isLoadingMore || loadedCount.value >= dataSize) return;
+
+    isLoadingMore = true;
     _currentPage++;
-    
+
     try {
       final newMovies = await apiClient.getPopularMovies(page: _currentPage);
-      movies.addAll(newMovies);
-      filteredMovies.addAll(newMovies);
-      loadedCount.value = movies.length;
-      
-      if (loadedCount.value >= dataSize) {
-        completeTest();
+      final moviesToAdd = newMovies.take(dataSize - loadedCount.value).toList();
+
+      final allMovies = [...movies, ...moviesToAdd];
+
+      movies.value = allMovies;
+      filteredMovies.value = allMovies;
+      loadedCount.value = allMovies.length;
+
+      if (allMovies.length >= dataSize) {
+        isAutoScrolling.value = false;
       }
+    } catch (e) {
+      error.value = e.toString();
+      status.value = BenchmarkStatus.error;
     } finally {
-      _isLoadingMore = false;
+      isLoadingMore = false;
     }
   }
 
@@ -193,15 +199,8 @@ class BenchmarkController extends GetxController {
   }
 
   void completeTest() {
-    _autoScrollTimer?.cancel();
     endTime = DateTime.now();
     status.value = BenchmarkStatus.completed;
     isAutoScrolling.value = false;
-  }
-
-  @override
-  void onClose() {
-    _autoScrollTimer?.cancel();
-    super.onClose();
   }
 }

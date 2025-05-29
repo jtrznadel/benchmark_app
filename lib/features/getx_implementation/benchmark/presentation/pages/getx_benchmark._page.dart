@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'dart:async';
 import 'package:moviedb_benchmark/features/getx_implementation/benchmark/presentation/controllers/benchmark_controller.dart';
 import '../widgets/getx_benchmark_controls.dart';
 import '../../../../../core/widgets/movie_list_item.dart';
@@ -22,50 +23,58 @@ class GetXBenchmarkPage extends StatefulWidget {
 class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
   late ScrollController _scrollController;
   final controller = Get.put(BenchmarkController());
+  Timer? _scrollTimer;
 
   @override
   void initState() {
     super.initState();
     _scrollController = ScrollController();
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.startBenchmark(widget.scenarioId, widget.dataSize);
-      
+
       if (widget.scenarioId == 'S02') {
-        _startAutoScroll();
+        Future.delayed(const Duration(milliseconds: 500), () {
+          _startAutoScroll();
+        });
       }
     });
   }
 
   void _startAutoScroll() {
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients && controller.isAutoScrolling.value) {
-        _animateScroll();
+    _scrollTimer?.cancel();
+    _scrollTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      if (!mounted || !_scrollController.hasClients) {
+        timer.cancel();
+        return;
+      }
+
+      if (!controller.isAutoScrolling.value ||
+          controller.status.value == BenchmarkStatus.completed) {
+        timer.cancel();
+        return;
+      }
+
+      final currentPosition = _scrollController.position.pixels;
+      final maxScroll = _scrollController.position.maxScrollExtent;
+
+      final newPosition = currentPosition + 100;
+
+      if (newPosition >= maxScroll &&
+          controller.loadedCount.value >= widget.dataSize) {
+        timer.cancel();
+        controller.completeTest();
+      } else if (newPosition <= maxScroll) {
+        _scrollController.jumpTo(newPosition);
+      } else if (maxScroll > currentPosition) {
+        _scrollController.jumpTo(maxScroll);
       }
     });
   }
 
-  void _animateScroll() {
-    if (!_scrollController.hasClients || !controller.isAutoScrolling.value) return;
-    
-    final double targetPosition = _scrollController.position.maxScrollExtent;
-    final double currentPosition = _scrollController.position.pixels;
-    
-    if (currentPosition < targetPosition) {
-      _scrollController.animateTo(
-        targetPosition,
-        duration: Duration(milliseconds: ((targetPosition - currentPosition) * 3).toInt()),
-        curve: Curves.linear,
-      ).then((_) {
-        if (controller.isAutoScrolling.value && controller.loadedCount.value < widget.dataSize) {
-          Future.delayed(const Duration(milliseconds: 100), _animateScroll);
-        }
-      });
-    }
-  }
-
   @override
   void dispose() {
+    _scrollTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -167,17 +176,22 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
             final movie = controller.filteredMovies[index];
 
             if (widget.scenarioId == 'S02' &&
-                index == controller.filteredMovies.length - 5 &&
-                controller.loadedCount.value < widget.dataSize) {
-              controller.loadMoreMovies();
+                index == controller.filteredMovies.length - 10 &&
+                controller.loadedCount.value < widget.dataSize &&
+                !controller.isLoadingMore) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                controller.loadMoreMovies();
+              });
             }
 
-            return Obx(() => MovieListItem(
-                  movie: movie,
-                  isExpanded: controller.expandedMovies.contains(movie.id),
-                  isAccessibilityMode: controller.isAccessibilityMode.value,
-                  onTap: () => controller.toggleMovieExpanded(movie.id),
-                ));
+            return MovieListItem(
+              movie: movie,
+              isExpanded: controller.expandedMovies.contains(movie.id),
+              isAccessibilityMode: controller.isAccessibilityMode.value,
+              onTap: () {
+                controller.toggleMovieExpanded(movie.id);
+              },
+            );
           },
         );
       }

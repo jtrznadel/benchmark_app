@@ -6,8 +6,8 @@ import 'benchmark_state.dart';
 
 class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
   final TmdbApiClient apiClient;
-  Timer? _autoScrollTimer;
   int _currentPage = 1;
+  bool isLoadingMore = false;
 
   BenchmarkBloc({required this.apiClient}) : super(const BenchmarkState()) {
     on<StartBenchmark>(_onStartBenchmark);
@@ -17,14 +17,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     on<ToggleViewMode>(_onToggleViewMode);
     on<ToggleAccessibilityMode>(_onToggleAccessibilityMode);
     on<ToggleMovieExpanded>(_onToggleMovieExpanded);
-    on<AutoScrollTick>(_onAutoScrollTick);
     on<BenchmarkCompleted>(_onBenchmarkCompleted);
-  }
-
-  @override
-  Future<void> close() {
-    _autoScrollTimer?.cancel();
-    return super.close();
   }
 
   Future<void> _onStartBenchmark(
@@ -84,14 +77,6 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       loadedCount: initialMovies.length,
       isAutoScrolling: true,
     ));
-
-    _autoScrollTimer = Timer.periodic(const Duration(milliseconds: 1000), (_) {
-      if (state.loadedCount < dataSize) {
-        add(AutoScrollTick());
-      } else {
-        add(BenchmarkCompleted());
-      }
-    });
   }
 
   Future<void> _runScenario3(int dataSize, Emitter<BenchmarkState> emit) async {
@@ -152,17 +137,29 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   Future<void> _onLoadMoreMovies(
       LoadMoreMovies event, Emitter<BenchmarkState> emit) async {
-    if (state.loadedCount >= state.dataSize) return;
+    if (isLoadingMore || state.loadedCount >= state.dataSize) return;
 
+    isLoadingMore = true;
     _currentPage++;
-    final newMovies = await apiClient.getPopularMovies(page: _currentPage);
-    final allMovies = [...state.movies, ...newMovies];
 
-    emit(state.copyWith(
-      movies: allMovies,
-      filteredMovies: allMovies,
-      loadedCount: allMovies.length,
-    ));
+    try {
+      final newMovies = await apiClient.getPopularMovies(page: _currentPage);
+      final moviesToAdd =
+          newMovies.take(state.dataSize - state.loadedCount).toList();
+      final allMovies = [...state.movies, ...moviesToAdd];
+
+      emit(state.copyWith(
+        movies: allMovies,
+        filteredMovies: allMovies,
+        loadedCount: allMovies.length,
+      ));
+
+      if (allMovies.length >= state.dataSize) {
+        emit(state.copyWith(isAutoScrolling: false));
+      }
+    } finally {
+      isLoadingMore = false;
+    }
   }
 
   void _onFilterMovies(FilterMovies event, Emitter<BenchmarkState> emit) {
@@ -208,16 +205,8 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     emit(state.copyWith(expandedMovies: expandedMovies));
   }
 
-  void _onAutoScrollTick(AutoScrollTick event, Emitter<BenchmarkState> emit) {
-    if (state.loadedCount < state.dataSize) {
-      add(LoadMoreMovies());
-    }
-  }
-
   void _onBenchmarkCompleted(
       BenchmarkCompleted event, Emitter<BenchmarkState> emit) {
-    _autoScrollTimer?.cancel();
-    
     emit(state.copyWith(
       status: BenchmarkStatus.completed,
       endTime: DateTime.now(),
