@@ -83,7 +83,6 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       loadedCount: initialMovies.length,
       isAutoScrolling: true,
     ));
-    add(BenchmarkCompleted());
   }
 
   Future<void> _runScenario3(int dataSize, Emitter<BenchmarkState> emit) async {
@@ -163,6 +162,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
       if (allMovies.length >= state.dataSize) {
         emit(state.copyWith(isAutoScrolling: false));
+        add(BenchmarkCompleted());
       }
     } finally {
       isLoadingMore = false;
