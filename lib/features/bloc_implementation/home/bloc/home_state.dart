@@ -1,16 +1,18 @@
 import 'package:equatable/equatable.dart';
+import 'package:moviedb_benchmark/features/bloc_implementation/benchmark/bloc/benchmark_state.dart';
+import 'package:moviedb_benchmark/core/utils/enums.dart';
 
 class HomeState extends Equatable {
-  final String? selectedScenario;
+  final ScenarioType? selectedScenario; // ZMIANA: String? -> ScenarioType?
   final int dataSize;
 
   const HomeState({
     this.selectedScenario,
-    this.dataSize = 500,
+    this.dataSize = 1000, // ZMIANA: 500 -> 1000
   });
 
   HomeState copyWith({
-    String? selectedScenario,
+    ScenarioType? selectedScenario, // ZMIANA
     int? dataSize,
   }) {
     return HomeState(

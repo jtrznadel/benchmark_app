@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'dart:async';
 import 'package:moviedb_benchmark/features/getx_implementation/benchmark/presentation/controllers/benchmark_controller.dart';
+
+import 'package:moviedb_benchmark/core/utils/uir_tracker.dart';
 import '../widgets/getx_benchmark_controls.dart';
 import '../../../../../core/widgets/movie_list_item.dart';
 import '../../../../../core/widgets/movie_grid_item.dart';
+import 'package:moviedb_benchmark/core/utils/enums.dart';
 
 class GetXBenchmarkPage extends StatefulWidget {
-  final String scenarioId;
+  final ScenarioType scenarioType; // ZMIANA: String -> ScenarioType
   final int dataSize;
 
   const GetXBenchmarkPage({
     super.key,
-    required this.scenarioId,
+    required this.scenarioType,
     required this.dataSize,
   });
 
@@ -23,59 +25,22 @@ class GetXBenchmarkPage extends StatefulWidget {
 class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
   late ScrollController _scrollController;
   final controller = Get.put(BenchmarkController());
-  Timer? _scrollTimer;
 
   @override
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    UIRTracker.startTracking(); // DODANE
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.startBenchmark(widget.scenarioId, widget.dataSize);
-
-      if (widget.scenarioId == 'S02') {
-        Future.delayed(const Duration(milliseconds: 500), () {
-          _startAutoScroll();
-        });
-      }
-    });
-  }
-
-  void _startAutoScroll() {
-    _scrollTimer?.cancel();
-    _scrollTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
-      if (!mounted || !_scrollController.hasClients) {
-        timer.cancel();
-        return;
-      }
-
-      if (!controller.isAutoScrolling.value ||
-          controller.status.value == BenchmarkStatus.completed) {
-        timer.cancel();
-        return;
-      }
-
-      final currentPosition = _scrollController.position.pixels;
-      final maxScroll = _scrollController.position.maxScrollExtent;
-
-      final newPosition = currentPosition + 100;
-
-      if (newPosition >= maxScroll &&
-          controller.loadedCount.value >= widget.dataSize) {
-        timer.cancel();
-        controller.completeTest();
-      } else if (newPosition <= maxScroll) {
-        _scrollController.jumpTo(newPosition);
-      } else if (maxScroll > currentPosition) {
-        _scrollController.jumpTo(maxScroll);
-      }
+      controller.startBenchmark(widget.scenarioType, widget.dataSize);
     });
   }
 
   @override
   void dispose() {
-    _scrollTimer?.cancel();
     _scrollController.dispose();
+    UIRTracker.stopTracking(); // DODANE
     super.dispose();
   }
 
@@ -83,7 +48,7 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('GetX Benchmark: ${widget.scenarioId}'),
+        title: Text('GetX Benchmark: ${_getScenarioName(widget.scenarioType)}'),
         backgroundColor: Colors.purple,
         actions: [
           Obx(() {
@@ -110,7 +75,7 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
               children: [
                 CircularProgressIndicator(color: Colors.purple),
                 SizedBox(height: 16),
-                Text('Ładowanie danych...'),
+                Text('Loading data...'),
               ],
             ),
           );
@@ -119,7 +84,7 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
         if (controller.status.value == BenchmarkStatus.error) {
           return Center(
             child: Text(
-              'Błąd: ${controller.error.value}',
+              'Error: ${controller.error.value}',
               style: const TextStyle(color: Colors.red),
             ),
           );
@@ -128,7 +93,7 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
         return Column(
           children: [
             GetXBenchmarkControls(
-              scenarioId: widget.scenarioId,
+              scenarioType: widget.scenarioType,
               controller: controller,
             ),
             Expanded(
@@ -141,11 +106,22 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
   }
 
   Widget _buildMovieView() {
-    if (controller.filteredMovies.isEmpty) {
-      return const Center(child: Text('Brak filmów do wyświetlenia'));
-    }
-
     return Obx(() {
+      // For scenarios that use enriched movies, show those
+      if (controller.enrichedMovies.isNotEmpty) {
+        return _buildEnrichedMovieView();
+      }
+
+      // For high frequency scenario, show counters
+      if (widget.scenarioType == ScenarioType.highFrequency) {
+        return _buildHighFrequencyView();
+      }
+
+      // Default movie view
+      if (controller.filteredMovies.isEmpty) {
+        return const Center(child: Text('No movies to display'));
+      }
+
       if (controller.viewMode.value == ViewMode.grid) {
         return GridView.builder(
           controller: _scrollController,
@@ -174,16 +150,6 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
           itemCount: controller.filteredMovies.length,
           itemBuilder: (context, index) {
             final movie = controller.filteredMovies[index];
-
-            if (widget.scenarioId == 'S02' &&
-                index == controller.filteredMovies.length - 10 &&
-                controller.loadedCount.value < widget.dataSize &&
-                !controller.isLoadingMore) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                controller.loadMoreMovies();
-              });
-            }
-
             return MovieListItem(
               movie: movie,
               isExpanded: controller.expandedMovies.contains(movie.id),
@@ -196,5 +162,95 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
         );
       }
     });
+  }
+
+  Widget _buildEnrichedMovieView() {
+    UIRTracker.markWidgetRebuild('EnrichedMovieView', 'movies_update');
+    return Obx(() => ListView.builder(
+          padding: const EdgeInsets.all(8),
+          itemCount: controller.enrichedMovies.length,
+          itemBuilder: (context, index) {
+            final enrichedMovie = controller.enrichedMovies[index];
+            return Card(
+              child: ListTile(
+                title: Text(enrichedMovie.baseMovie.title),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Cast: ${enrichedMovie.cast.take(3).join(", ")}...'),
+                    Text('Reviews: ${enrichedMovie.reviews.length}'),
+                    Text(
+                        'Progress: ${(enrichedMovie.watchProgress * 100).toStringAsFixed(1)}%'),
+                  ],
+                ),
+                trailing: Column(
+                  children: [
+                    Icon(enrichedMovie.isFavorite
+                        ? Icons.favorite
+                        : Icons.favorite_border),
+                    Icon(enrichedMovie.isInWatchlist
+                        ? Icons.bookmark
+                        : Icons.bookmark_border),
+                  ],
+                ),
+              ),
+            );
+          },
+        ));
+  }
+
+  Widget _buildHighFrequencyView() {
+    UIRTracker.markWidgetRebuild('HighFrequencyView', 'highfreq_update');
+    return Obx(() => Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Text('Frame: ${controller.progressCounter.value}',
+                  style: const TextStyle(fontSize: 24)),
+              const SizedBox(height: 20),
+              Expanded(
+                child: GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 4,
+                    childAspectRatio: 1.5,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                  ),
+                  itemCount: controller.multiCounters.length,
+                  itemBuilder: (context, index) {
+                    return Card(
+                      color: controller.loadingStates.length > index &&
+                              controller.loadingStates[index]
+                          ? Colors.purple.withOpacity(0.3)
+                          : null,
+                      child: Center(
+                        child: Text(
+                          '${controller.multiCounters[index]}',
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ));
+  }
+
+  String _getScenarioName(ScenarioType type) {
+    switch (type) {
+      case ScenarioType.apiStreaming:
+        return 'S01 - API Streaming';
+      case ScenarioType.realtimeFiltering:
+        return 'S02 - Real-time Filtering';
+      case ScenarioType.memoryPressure:
+        return 'S03 - Memory Pressure';
+      case ScenarioType.cascadingUpdates:
+        return 'S04 - Cascading Updates';
+      case ScenarioType.highFrequency:
+        return 'S05 - High Frequency';
+    }
   }
 }
