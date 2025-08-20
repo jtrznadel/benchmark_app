@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moviedb_benchmark/core/utils/uip_tracker.dart';
 import '../models/movie.dart';
 import '../api/api_constants.dart';
 
@@ -18,6 +19,9 @@ class MovieListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ZMIANA - proste counting bez parametrów
+    UIPerformanceTracker.markWidgetRebuild();
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: InkWell(

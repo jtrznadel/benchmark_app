@@ -1,12 +1,11 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:async';
 import 'package:moviedb_benchmark/core/api/tmdb_api__client.dart';
+import 'package:moviedb_benchmark/core/utils/enums.dart';
 import 'package:moviedb_benchmark/core/utils/memory_monitor.dart';
+import 'package:moviedb_benchmark/core/utils/uip_tracker.dart';
 import 'package:moviedb_benchmark/features/bloc_implementation/theme/bloc/theme_block.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../../core/widgets/movie_list_item.dart';
 import '../../../../../core/widgets/movie_grid_item.dart';
 import '../widgets/bloc_benchmark_controls.dart';
@@ -16,12 +15,12 @@ import '../../bloc/benchmark_event.dart';
 import '../../bloc/benchmark_state.dart';
 
 class BlocBenchmarkPage extends StatefulWidget {
-  final String scenarioId;
+  final ScenarioType scenarioType;
   final int dataSize;
 
   const BlocBenchmarkPage({
     super.key,
-    required this.scenarioId,
+    required this.scenarioType,
     required this.dataSize,
   });
 
@@ -38,14 +37,14 @@ class _BlocBenchmarkPageState extends State<BlocBenchmarkPage> {
           create: (context) => BenchmarkBloc(
             apiClient: context.read<TmdbApiClient>(),
           )..add(StartBenchmark(
-              scenarioId: widget.scenarioId, dataSize: widget.dataSize)),
+              scenarioType: widget.scenarioType, dataSize: widget.dataSize)),
         ),
         BlocProvider(
           create: (context) => ThemeBloc(),
         ),
       ],
       child: _BlocBenchmarkPageContent(
-        scenarioId: widget.scenarioId,
+        scenarioType: widget.scenarioType,
         dataSize: widget.dataSize,
       ),
     );
@@ -53,11 +52,11 @@ class _BlocBenchmarkPageState extends State<BlocBenchmarkPage> {
 }
 
 class _BlocBenchmarkPageContent extends StatefulWidget {
-  final String scenarioId;
+  final ScenarioType scenarioType;
   final int dataSize;
 
   const _BlocBenchmarkPageContent({
-    required this.scenarioId,
+    required this.scenarioType,
     required this.dataSize,
   });
 
@@ -73,47 +72,16 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
   @override
   void initState() {
     super.initState();
-
     _scrollController = ScrollController();
+    UIPerformanceTracker.startTracking(); // ZMIANA
   }
 
   @override
   void dispose() {
     _scrollTimer?.cancel();
     _scrollController.dispose();
+    UIPerformanceTracker.stopTracking(); // ZMIANA
     super.dispose();
-  }
-
-  void _startAutoScroll() {
-    _scrollTimer?.cancel();
-    _scrollTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
-      if (!mounted || !_scrollController.hasClients) {
-        timer.cancel();
-        return;
-      }
-
-      final bloc = context.read<BenchmarkBloc>();
-      final state = bloc.state;
-
-      if (!state.isAutoScrolling || state.status == BenchmarkStatus.completed) {
-        timer.cancel();
-        return;
-      }
-
-      final currentPosition = _scrollController.position.pixels;
-      final maxScroll = _scrollController.position.maxScrollExtent;
-
-      final newPosition = currentPosition + 100;
-
-      if (newPosition >= maxScroll && state.loadedCount >= widget.dataSize) {
-        timer.cancel();
-        bloc.add(BenchmarkCompleted());
-      } else if (newPosition <= maxScroll) {
-        _scrollController.jumpTo(newPosition);
-      } else if (maxScroll > currentPosition) {
-        _scrollController.jumpTo(maxScroll);
-      }
-    });
   }
 
   @override
@@ -125,18 +93,11 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
         } else {
           context.read<ThemeBloc>().add(DisableAccessibilityTheme());
         }
-
-        if (widget.scenarioId == 'S02' &&
-            state.isAutoScrolling &&
-            state.status == BenchmarkStatus.running) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _startAutoScroll();
-          });
-        }
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text('BLoC Benchmark: ${widget.scenarioId}'),
+          title:
+              Text('BLoC Benchmark: ${_getScenarioName(widget.scenarioType)}'),
           backgroundColor: Colors.blue,
           actions: [
             BlocBuilder<BenchmarkBloc, BenchmarkState>(
@@ -168,7 +129,7 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
                   children: [
                     CircularProgressIndicator(color: Colors.blue),
                     SizedBox(height: 16),
-                    Text('Ładowanie danych...'),
+                    Text('Loading data...'),
                   ],
                 ),
               );
@@ -177,7 +138,7 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
             if (state.status == BenchmarkStatus.error) {
               return Center(
                 child: Text(
-                  'Błąd: ${state.error}',
+                  'Error: ${state.error}',
                   style: const TextStyle(color: Colors.red),
                 ),
               );
@@ -186,7 +147,7 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
             return Column(
               children: [
                 BlocBenchmarkControls(
-                  scenarioId: widget.scenarioId,
+                  scenarioType: widget.scenarioType,
                   state: state,
                 ),
                 Expanded(
@@ -201,8 +162,19 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
   }
 
   Widget _buildMovieView(BuildContext context, BenchmarkState state) {
+    // For scenarios that use enriched movies, show those
+    if (state.enrichedMovies.isNotEmpty) {
+      return _buildEnrichedMovieView(state);
+    }
+
+    // For high frequency scenario, show counters
+    if (widget.scenarioType == ScenarioType.highFrequency) {
+      return _buildHighFrequencyView(state);
+    }
+
+    // Default movie view
     if (state.filteredMovies.isEmpty) {
-      return const Center(child: Text('Brak filmów do wyświetlenia'));
+      return const Center(child: Text('No movies to display'));
     }
 
     if (state.viewMode == ViewMode.grid) {
@@ -237,16 +209,6 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
         itemCount: state.filteredMovies.length,
         itemBuilder: (context, index) {
           final movie = state.filteredMovies[index];
-
-          if (state.scenarioId == 'S02' &&
-              index == state.filteredMovies.length - 10 &&
-              state.loadedCount < state.dataSize &&
-              !context.read<BenchmarkBloc>().isLoadingMore) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              context.read<BenchmarkBloc>().add(LoadMoreMovies());
-            });
-          }
-
           return MovieListItem(
             movie: movie,
             isExpanded: state.expandedMovies.contains(movie.id),
@@ -259,6 +221,96 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
           );
         },
       );
+    }
+  }
+
+  Widget _buildEnrichedMovieView(BenchmarkState state) {
+    UIPerformanceTracker.markWidgetRebuild(); // ZMIANA - usunięto parametr
+    return ListView.builder(
+      padding: const EdgeInsets.all(8),
+      itemCount: state.enrichedMovies.length,
+      itemBuilder: (context, index) {
+        final enrichedMovie = state.enrichedMovies[index];
+        return Card(
+          child: ListTile(
+            title: Text(enrichedMovie.baseMovie.title),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Cast: ${enrichedMovie.cast.take(3).join(", ")}...'),
+                Text('Reviews: ${enrichedMovie.reviews.length}'),
+                Text(
+                    'Progress: ${(enrichedMovie.watchProgress * 100).toStringAsFixed(1)}%'),
+              ],
+            ),
+            trailing: Column(
+              children: [
+                Icon(enrichedMovie.isFavorite
+                    ? Icons.favorite
+                    : Icons.favorite_border),
+                Icon(enrichedMovie.isInWatchlist
+                    ? Icons.bookmark
+                    : Icons.bookmark_border),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHighFrequencyView(BenchmarkState state) {
+    UIPerformanceTracker.markWidgetRebuild(); // ZMIANA - usunięto parametr
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Text('Frame: ${state.progressCounter}',
+              style: const TextStyle(fontSize: 24)),
+          const SizedBox(height: 20),
+          Expanded(
+            child: GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                childAspectRatio: 1.5,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemCount: state.multiCounters.length,
+              itemBuilder: (context, index) {
+                return Card(
+                  color: state.loadingStates.length > index &&
+                          state.loadingStates[index]
+                      ? Colors.blue.withOpacity(0.3)
+                      : null,
+                  child: Center(
+                    child: Text(
+                      '${state.multiCounters[index]}',
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getScenarioName(ScenarioType type) {
+    switch (type) {
+      case ScenarioType.apiStreaming:
+        return 'S01 - API Streaming';
+      case ScenarioType.realtimeFiltering:
+        return 'S02 - Real-time Filtering';
+      case ScenarioType.memoryPressure:
+        return 'S03 - Memory Pressure';
+      case ScenarioType.cascadingUpdates:
+        return 'S04 - Cascading Updates';
+      case ScenarioType.highFrequency:
+        return 'S05 - High Frequency';
     }
   }
 }

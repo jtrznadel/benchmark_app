@@ -1,4 +1,6 @@
 import 'package:equatable/equatable.dart';
+import 'package:moviedb_benchmark/features/bloc_implementation/benchmark/bloc/benchmark_state.dart';
+import 'package:moviedb_benchmark/core/utils/enums.dart';
 
 abstract class BenchmarkEvent extends Equatable {
   const BenchmarkEvent();
@@ -8,18 +10,34 @@ abstract class BenchmarkEvent extends Equatable {
 }
 
 class StartBenchmark extends BenchmarkEvent {
-  final String scenarioId;
+  final ScenarioType scenarioType; // ZMIANA: String -> ScenarioType
   final int dataSize;
 
   const StartBenchmark({
-    required this.scenarioId,
+    required this.scenarioType,
     required this.dataSize,
   });
 
   @override
-  List<Object?> get props => [scenarioId, dataSize];
+  List<Object?> get props => [scenarioType, dataSize];
 }
 
+// NOWE eventy dla nowych scenariuszy
+class StreamingTick extends BenchmarkEvent {}
+
+class FilteringTick extends BenchmarkEvent {}
+
+class MemoryPressureTick extends BenchmarkEvent {}
+
+class CascadingUpdateTick extends BenchmarkEvent {}
+
+class HighFrequencyTick extends BenchmarkEvent {}
+
+class EnrichMoviesData extends BenchmarkEvent {}
+
+class SimplifyMoviesData extends BenchmarkEvent {}
+
+// Zachowane stare eventy
 class LoadMoreMovies extends BenchmarkEvent {}
 
 class FilterMovies extends BenchmarkEvent {
@@ -52,7 +70,5 @@ class ToggleMovieExpanded extends BenchmarkEvent {
   @override
   List<Object?> get props => [movieId];
 }
-
-class AutoScrollTick extends BenchmarkEvent {}
 
 class BenchmarkCompleted extends BenchmarkEvent {}

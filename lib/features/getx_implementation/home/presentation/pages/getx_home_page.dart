@@ -38,8 +38,8 @@ class GetXHomePage extends StatelessWidget {
                   onPressed: homeController.selectedScenario.value != null
                       ? () {
                           Get.to(() => GetXBenchmarkPage(
-                                scenarioId:
-                                    homeController.selectedScenario.value!,
+                                scenarioType: homeController.selectedScenario
+                                    .value!, // ZMIANA: scenarioId -> scenarioType
                                 dataSize: homeController.dataSize.value,
                               ));
                         }

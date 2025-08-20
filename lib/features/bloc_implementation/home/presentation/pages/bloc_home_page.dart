@@ -34,7 +34,8 @@ class BlocHomePage extends StatelessWidget {
                   onScenarioSelected: (scenario, size) {
                     context.read<HomeBloc>().add(
                           SelectScenario(
-                            scenarioId: scenario,
+                            scenarioId:
+                                scenario, // ZMIANA: scenarioType -> scenarioId
                             dataSize: size,
                           ),
                         );
@@ -48,7 +49,8 @@ class BlocHomePage extends StatelessWidget {
                             context,
                             MaterialPageRoute(
                               builder: (context) => BlocBenchmarkPage(
-                                scenarioId: state.selectedScenario!,
+                                scenarioType: state
+                                    .selectedScenario!, // ZMIANA: scenarioId -> scenarioType
                                 dataSize: state.dataSize,
                               ),
                             ),

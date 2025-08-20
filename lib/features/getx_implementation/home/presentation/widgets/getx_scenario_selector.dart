@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:moviedb_benchmark/features/bloc_implementation/benchmark/bloc/benchmark_state.dart';
+import 'package:moviedb_benchmark/core/utils/enums.dart';
 
 class GetXScenarioSelector extends StatelessWidget {
-  final String? selectedScenario;
+  final ScenarioType? selectedScenario;
   final int dataSize;
-  final Function(String, int) onScenarioSelected;
+  final Function(ScenarioType, int) onScenarioSelected;
 
   const GetXScenarioSelector({
     super.key,
@@ -17,55 +19,58 @@ class GetXScenarioSelector extends StatelessWidget {
     return Column(
       children: [
         _buildScenarioTile(
-          'S01',
-          'Preloading danych',
-          'Jednorazowe pobranie zestawu danych',
+          ScenarioType.apiStreaming,
+          'API Data Streaming',
+          'Intensywne pobieranie i dodawanie danych co 200ms',
         ),
         _buildScenarioTile(
-          'S02',
-          'Przewijanie z doładowywaniem',
-          'Pobieranie kolejnych zestawów danych w trakcie przewijania',
+          ScenarioType.realtimeFiltering,
+          'Real-time Data Filtering',
+          'Częste filtrowanie dużego zbioru danych co 100ms',
         ),
         _buildScenarioTile(
-          'S03',
-          'Lokalne filtrowanie',
-          'Transformacja lokalna załadowanych danych',
+          ScenarioType.memoryPressure,
+          'Memory Pressure Simulation',
+          'Cykliczne tworzenie i usuwanie rozszerzonych danych',
         ),
         _buildScenarioTile(
-          'S04',
-          'Przełączanie widoków',
-          'Radykalna zmiana sposobu prezentacji danych',
+          ScenarioType.cascadingUpdates,
+          'Cascading State Updates',
+          'Wielopoziomowe aktualizacje stanu co 300ms',
         ),
         _buildScenarioTile(
-          'S05',
-          'Wielopoziomowa aktualizacja stanu',
-          'Aktualizacja stanu na różnych poziomach hierarchii',
+          ScenarioType.highFrequency,
+          'High-Frequency Updates',
+          'Bardzo częste aktualizacje wielu zmiennych (60 FPS)',
         ),
         const SizedBox(height: 20),
         const Text('Wielkość zbioru danych:'),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildSizeChip(500),
-            const SizedBox(width: 10),
             _buildSizeChip(1000),
             const SizedBox(width: 10),
-            _buildSizeChip(2000),
+            _buildSizeChip(2500),
+            const SizedBox(width: 10),
+            _buildSizeChip(5000),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildScenarioTile(String id, String title, String description) {
-    final isSelected = selectedScenario == id;
+  Widget _buildScenarioTile(
+      ScenarioType type, String title, String description) {
+    final isSelected = selectedScenario == type;
     return Card(
       color: isSelected ? Colors.purple.withOpacity(0.2) : null,
       child: ListTile(
-        title: Text('$id: $title'),
+        title: Text('${_getScenarioId(type)}: $title'),
         subtitle: Text(description),
-        onTap: () => onScenarioSelected(id, dataSize),
-        trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.purple) : null,
+        onTap: () => onScenarioSelected(type, dataSize),
+        trailing: isSelected
+            ? const Icon(Icons.check_circle, color: Colors.purple)
+            : null,
       ),
     );
   }
@@ -82,5 +87,20 @@ class GetXScenarioSelector extends StatelessWidget {
         }
       },
     );
+  }
+
+  String _getScenarioId(ScenarioType type) {
+    switch (type) {
+      case ScenarioType.apiStreaming:
+        return 'S01';
+      case ScenarioType.realtimeFiltering:
+        return 'S02';
+      case ScenarioType.memoryPressure:
+        return 'S03';
+      case ScenarioType.cascadingUpdates:
+        return 'S04';
+      case ScenarioType.highFrequency:
+        return 'S05';
+    }
   }
 }
