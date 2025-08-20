@@ -5,7 +5,7 @@ import 'package:moviedb_benchmark/core/api/tmdb_api__client.dart';
 import 'package:moviedb_benchmark/core/utils/enums.dart';
 import 'package:moviedb_benchmark/core/utils/memory_monitor.dart';
 import 'package:moviedb_benchmark/core/models/enriched_movie.dart';
-import 'package:moviedb_benchmark/core/utils/uir_tracker.dart';
+import 'package:moviedb_benchmark/core/utils/uip_tracker.dart';
 import 'benchmark_event.dart';
 import 'benchmark_state.dart';
 
@@ -63,7 +63,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
     // Start tracking
     MemoryMonitor.startMonitoring(interval: const Duration(milliseconds: 100));
-    UIRTracker.startTracking();
+    UIPerformanceTracker.startTracking(); // ZMIANA
 
     try {
       switch (event.scenarioType) {
@@ -119,7 +119,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
   Future<void> _onStreamingTick(
       StreamingTick event, Emitter<BenchmarkState> emit) async {
     try {
-      UIRTracker.markStateChange('movies_update');
+      UIPerformanceTracker.markStateUpdate(); // ZMIANA
 
       final newMovies = await apiClient.getPopularMovies(page: _currentPage);
       final allMovies = [...state.movies, ...newMovies];
@@ -142,7 +142,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     // Load initial data
     final movies = await apiClient.loadAllMovies(totalItems: dataSize);
 
-    UIRTracker.markStateChange('movies_update');
+    UIPerformanceTracker.markStateUpdate(); // ZMIANA
     emit(state.copyWith(
       status: BenchmarkStatus.running,
       movies: movies,
@@ -167,7 +167,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     final filterIndex = state.currentFilterIndex % _predefinedFilters.length;
     final filter = _predefinedFilters[filterIndex];
 
-    UIRTracker.markStateChange('movies_update');
+    UIPerformanceTracker.markStateUpdate(); // ZMIANA
 
     var filtered = state.movies.where((movie) {
       bool matchesYear = filter['year'] == null ||
@@ -193,7 +193,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       int dataSize, Emitter<BenchmarkState> emit) async {
     final movies = await apiClient.loadAllMovies(totalItems: dataSize);
 
-    UIRTracker.markStateChange('movies_update');
+    UIPerformanceTracker.markStateUpdate(); // ZMIANA
     emit(state.copyWith(
       status: BenchmarkStatus.running,
       movies: movies,
@@ -222,7 +222,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onEnrichMoviesData(
       EnrichMoviesData event, Emitter<BenchmarkState> emit) {
-    UIRTracker.markStateChange('movies_update');
+    UIPerformanceTracker.markStateUpdate(); // ZMIANA
 
     final enriched = state.movies
         .map((movie) => EnrichedMovie(
@@ -252,7 +252,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onSimplifyMoviesData(
       SimplifyMoviesData event, Emitter<BenchmarkState> emit) {
-    UIRTracker.markStateChange('movies_update');
+    UIPerformanceTracker.markStateUpdate(); // ZMIANA
     emit(state.copyWith(
       enrichedMovies: [],
       statusText: 'Simplified: Removed extra data',
@@ -264,7 +264,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       int dataSize, Emitter<BenchmarkState> emit) async {
     final movies = await apiClient.loadAllMovies(totalItems: dataSize);
 
-    UIRTracker.markStateChange('movies_update');
+    UIPerformanceTracker.markStateUpdate(); // ZMIANA
     emit(state.copyWith(
       status: BenchmarkStatus.running,
       movies: movies,
@@ -290,11 +290,11 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
   void _onCascadingUpdateTick(
       CascadingUpdateTick event, Emitter<BenchmarkState> emit) {
     // 1. Global theme change
-    UIRTracker.markStateChange('theme_update');
+    UIPerformanceTracker.markStateUpdate(); // ZMIANA
     emit(state.copyWith(isAccessibilityMode: !state.isAccessibilityMode));
 
     // 2. View mode change
-    UIRTracker.markStateChange('viewmode_update');
+    UIPerformanceTracker.markStateUpdate(); // ZMIANA
     emit(state.copyWith(
       viewMode: state.viewMode == ViewMode.list ? ViewMode.grid : ViewMode.list,
     ));
@@ -303,11 +303,11 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     final randomMovies = List.generate(
             10, (i) => state.movies[_random.nextInt(state.movies.length)].id)
         .toSet();
-    UIRTracker.markStateChange('favorites_update');
+    UIPerformanceTracker.markStateUpdate(); // ZMIANA
     emit(state.copyWith(expandedMovies: randomMovies));
 
     // 4. Update filter
-    UIRTracker.markStateChange('filter_update');
+    UIPerformanceTracker.markStateUpdate(); // ZMIANA
     final randomGenre = [28, 35, 18, 27, 16][_random.nextInt(5)];
     final filtered =
         state.movies.where((m) => m.genreIds.contains(randomGenre)).toList();
@@ -326,7 +326,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     final movies = await apiClient.loadAllMovies(
         totalItems: min(dataSize, 1000)); // Limit for performance
 
-    UIRTracker.markStateChange('movies_update');
+    UIPerformanceTracker.markStateUpdate(); // ZMIANA
     emit(state.copyWith(
       status: BenchmarkStatus.running,
       movies: movies,
@@ -354,7 +354,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onHighFrequencyTick(
       HighFrequencyTick event, Emitter<BenchmarkState> emit) {
-    UIRTracker.markStateChange('highfreq_update');
+    UIPerformanceTracker.markStateUpdate(); // ZMIANA
 
     // Update multiple reactive variables
     final newCounters = state.multiCounters.map((c) => c + 1).toList();
@@ -369,23 +369,47 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     ));
   }
 
-  // Zachowane metody
-  Future<void> _onLoadMoreMovies(
-      LoadMoreMovies event, Emitter<BenchmarkState> emit) async {
-    // Existing implementation
-  }
-
   void _onMemoryPressureTick(
       MemoryPressureTick event, Emitter<BenchmarkState> emit) {
-    // Aktualizuj licznik postępu dla lepszego trackingu
+    UIPerformanceTracker.markStateUpdate(); // ZMIANA
     emit(state.copyWith(
       progressCounter: state.progressCounter + 1,
       statusText: 'Memory pressure cycle ${state.progressCounter + 1}',
     ));
   }
 
+  // Zachowane metody z dodanym state update tracking
+  Future<void> _onLoadMoreMovies(
+      LoadMoreMovies event, Emitter<BenchmarkState> emit) async {
+    if (isLoadingMore || state.loadedCount >= state.dataSize) return;
+
+    isLoadingMore = true;
+    _currentPage++;
+
+    try {
+      final newMovies = await apiClient.getPopularMovies(page: _currentPage);
+      final moviesToAdd =
+          newMovies.take(state.dataSize - state.loadedCount).toList();
+      final allMovies = [...state.movies, ...moviesToAdd];
+
+      UIPerformanceTracker.markStateUpdate(); // ZMIANA
+      emit(state.copyWith(
+        movies: allMovies,
+        filteredMovies: allMovies,
+        loadedCount: allMovies.length,
+      ));
+
+      if (allMovies.length >= state.dataSize) {
+        emit(state.copyWith(isAutoScrolling: false));
+        add(BenchmarkCompleted());
+      }
+    } finally {
+      isLoadingMore = false;
+    }
+  }
+
   void _onFilterMovies(FilterMovies event, Emitter<BenchmarkState> emit) {
-    UIRTracker.markStateChange('movies_update');
+    UIPerformanceTracker.markStateUpdate(); // ZMIANA
     final filtered = state.movies
         .where(
             (movie) => movie.genreIds.any((id) => event.genreIds.contains(id)))
@@ -394,7 +418,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
   }
 
   void _onSortMovies(SortMovies event, Emitter<BenchmarkState> emit) {
-    UIRTracker.markStateChange('movies_update');
+    UIPerformanceTracker.markStateUpdate(); // ZMIANA
     final sorted = [...state.filteredMovies];
     if (event.byReleaseDate) {
       sorted.sort((a, b) => b.releaseDate.compareTo(a.releaseDate));
@@ -405,7 +429,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
   }
 
   void _onToggleViewMode(ToggleViewMode event, Emitter<BenchmarkState> emit) {
-    UIRTracker.markStateChange('viewmode_update');
+    UIPerformanceTracker.markStateUpdate(); // ZMIANA
     emit(state.copyWith(
       viewMode: state.viewMode == ViewMode.list ? ViewMode.grid : ViewMode.list,
     ));
@@ -413,13 +437,13 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onToggleAccessibilityMode(
       ToggleAccessibilityMode event, Emitter<BenchmarkState> emit) {
-    UIRTracker.markStateChange('accessibility_update');
+    UIPerformanceTracker.markStateUpdate(); // ZMIANA
     emit(state.copyWith(isAccessibilityMode: !state.isAccessibilityMode));
   }
 
   void _onToggleMovieExpanded(
       ToggleMovieExpanded event, Emitter<BenchmarkState> emit) {
-    UIRTracker.markStateChange('expand_update');
+    UIPerformanceTracker.markStateUpdate(); // ZMIANA
     final expandedMovies = {...state.expandedMovies};
     if (expandedMovies.contains(event.movieId)) {
       expandedMovies.remove(event.movieId);
@@ -443,15 +467,15 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _completeTestWithReports() {
     MemoryMonitor.stopMonitoring();
-    UIRTracker.stopTracking();
+    UIPerformanceTracker.stopTracking(); // ZMIANA
 
     final memoryReport = MemoryMonitor.generateReport();
-    final uirReport = UIRTracker.generateReport();
+    final upmReport = UIPerformanceTracker.generateReport(); // ZMIANA
 
     print('=== BLoC Memory Report for ${state.scenarioType} ===');
     print(memoryReport.toFormattedString());
-    print('=== BLoC UIR Report for ${state.scenarioType} ===');
-    print(uirReport.toFormattedString());
+    print('=== BLoC UMP Report for ${state.scenarioType} ==='); // ZMIANA
+    print(upmReport.toFormattedString());
   }
 
   @override

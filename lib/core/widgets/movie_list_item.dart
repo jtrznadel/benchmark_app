@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:moviedb_benchmark/core/utils/uip_tracker.dart';
 import '../models/movie.dart';
 import '../api/api_constants.dart';
-import '../utils/uir_tracker.dart'; // DODANE
 
 class MovieListItem extends StatelessWidget {
   final Movie movie;
@@ -19,11 +19,10 @@ class MovieListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // DODANE - UIR tracking
-    UIRTracker.markWidgetRebuild('MovieListItem_${movie.id}', 'movies_update');
+    // ZMIANA - proste counting bez parametrów
+    UIPerformanceTracker.markWidgetRebuild();
 
     return Card(
-      // reszta bez zmian...
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: InkWell(
         onTap: onTap,

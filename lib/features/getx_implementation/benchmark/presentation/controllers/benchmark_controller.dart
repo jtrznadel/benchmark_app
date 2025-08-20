@@ -1,14 +1,18 @@
 import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'dart:async';
-import 'package:moviedb_benchmark/core/utils/enums.dart';
+import 'dart:math';
 
 import 'package:moviedb_benchmark/core/api/tmdb_api__client.dart';
-import 'package:moviedb_benchmark/core/models/enriched_movie.dart';
 import 'package:moviedb_benchmark/core/models/movie.dart';
+import 'package:moviedb_benchmark/core/models/enriched_movie.dart';
+import 'package:moviedb_benchmark/core/utils/enums.dart';
 import 'package:moviedb_benchmark/core/utils/memory_monitor.dart';
-import 'package:moviedb_benchmark/core/utils/uir_tracker.dart';
+import 'package:moviedb_benchmark/core/utils/uip_tracker.dart';
 import 'package:moviedb_benchmark/features/getx_implementation/theme/controllers/theme_controller.dart';
+import 'package:moviedb_benchmark/features/bloc_implementation/benchmark/bloc/benchmark_state.dart';
 
 class BenchmarkController extends GetxController {
   final TmdbApiClient apiClient = Get.put(TmdbApiClient());
@@ -39,7 +43,7 @@ class BenchmarkController extends GetxController {
   int _currentPage = 1;
   bool isLoadingMore = false;
   Timer? _scenarioTimer;
-  final math.Random _random = math.Random();
+  final Random _random = Random();
 
   // Predefiniowane filtry dla S02
   final List<Map<String, dynamic>> _predefinedFilters = [
@@ -65,6 +69,7 @@ class BenchmarkController extends GetxController {
   }
 
   void startBenchmark(ScenarioType scenario, int size) async {
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     scenarioType.value = scenario;
     dataSize = size;
     startTime = DateTime.now();
@@ -72,7 +77,7 @@ class BenchmarkController extends GetxController {
 
     MemoryMonitor.stopMonitoring();
     MemoryMonitor.startMonitoring(interval: const Duration(milliseconds: 100));
-    UIRTracker.startTracking();
+    UIPerformanceTracker.startTracking(); // ZMIANA
 
     try {
       switch (scenario) {
@@ -93,6 +98,7 @@ class BenchmarkController extends GetxController {
           break;
       }
     } catch (e) {
+      UIPerformanceTracker.markStateUpdate(); // DODANE
       status.value = BenchmarkStatus.error;
       error.value = e.toString();
       _completeTestWithReports();
@@ -101,6 +107,7 @@ class BenchmarkController extends GetxController {
 
   // S01 - API Data Streaming
   Future<void> _runApiStreamingScenario(int dataSize) async {
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     status.value = BenchmarkStatus.running;
     isStreamingActive.value = true;
 
@@ -122,15 +129,20 @@ class BenchmarkController extends GetxController {
 
   Future<void> _streamingTick() async {
     try {
-      UIRTracker.markStateChange('movies_update');
+      UIPerformanceTracker.markStateUpdate(); // DODANE
 
       final newMovies = await apiClient.getPopularMovies(page: _currentPage);
       final allMovies = [...movies, ...newMovies];
 
+      // Każda aktualizacja reactive variable = state update
       movies.value = allMovies;
+      UIPerformanceTracker.markStateUpdate(); // DODANE
       filteredMovies.value = allMovies;
+      UIPerformanceTracker.markStateUpdate(); // DODANE
       loadedCount.value = allMovies.length;
+      UIPerformanceTracker.markStateUpdate(); // DODANE
       progressCounter.value = _currentPage;
+      UIPerformanceTracker.markStateUpdate(); // DODANE
       statusText.value = 'Loading page $_currentPage...';
     } catch (e) {
       // Handle error but continue
@@ -142,11 +154,15 @@ class BenchmarkController extends GetxController {
     // Load initial data
     final loadedMovies = await apiClient.loadAllMovies(totalItems: dataSize);
 
-    UIRTracker.markStateChange('movies_update');
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     movies.value = loadedMovies;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     filteredMovies.value = loadedMovies;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     loadedCount.value = loadedMovies.length;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     currentFilterIndex.value = 0;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     status.value = BenchmarkStatus.running;
 
     // Start filtering cycle
@@ -165,7 +181,7 @@ class BenchmarkController extends GetxController {
     final filterIndex = currentFilterIndex.value % _predefinedFilters.length;
     final filter = _predefinedFilters[filterIndex];
 
-    UIRTracker.markStateChange('movies_update');
+    UIPerformanceTracker.markStateUpdate(); // DODANE
 
     var filtered = movies.where((movie) {
       bool matchesYear = filter['year'] == null ||
@@ -179,7 +195,9 @@ class BenchmarkController extends GetxController {
     }).toList();
 
     filteredMovies.value = filtered;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     currentFilterIndex.value = currentFilterIndex.value + 1;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     statusText.value =
         'Filter ${currentFilterIndex.value}: ${filtered.length} movies';
   }
@@ -188,10 +206,13 @@ class BenchmarkController extends GetxController {
   Future<void> _runMemoryPressureScenario(int dataSize) async {
     final loadedMovies = await apiClient.loadAllMovies(totalItems: dataSize);
 
-    UIRTracker.markStateChange('movies_update');
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     movies.value = loadedMovies;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     filteredMovies.value = loadedMovies;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     loadedCount.value = loadedMovies.length;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     status.value = BenchmarkStatus.running;
 
     int cycleCount = 0;
@@ -214,7 +235,7 @@ class BenchmarkController extends GetxController {
   }
 
   void _enrichMoviesData() {
-    UIRTracker.markStateChange('movies_update');
+    UIPerformanceTracker.markStateUpdate(); // DODANE
 
     final enriched = movies
         .map((movie) => EnrichedMovie(
@@ -237,12 +258,14 @@ class BenchmarkController extends GetxController {
         .toList();
 
     enrichedMovies.value = enriched;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     statusText.value = 'Enriched: ${enriched.length} movies with extra data';
   }
 
   void _simplifyMoviesData() {
-    UIRTracker.markStateChange('movies_update');
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     enrichedMovies.clear();
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     statusText.value = 'Simplified: Removed extra data';
   }
 
@@ -250,10 +273,13 @@ class BenchmarkController extends GetxController {
   Future<void> _runCascadingUpdatesScenario(int dataSize) async {
     final loadedMovies = await apiClient.loadAllMovies(totalItems: dataSize);
 
-    UIRTracker.markStateChange('movies_update');
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     movies.value = loadedMovies;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     filteredMovies.value = loadedMovies;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     loadedCount.value = loadedMovies.length;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     status.value = BenchmarkStatus.running;
 
     int updateCycle = 0;
@@ -273,12 +299,12 @@ class BenchmarkController extends GetxController {
 
   void _cascadingUpdateTick() {
     // 1. Global theme change
-    UIRTracker.markStateChange('theme_update');
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     isAccessibilityMode.value = !isAccessibilityMode.value;
     Get.find<ThemeController>().setAccessibilityMode(isAccessibilityMode.value);
 
     // 2. View mode change
-    UIRTracker.markStateChange('viewmode_update');
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     viewMode.value =
         viewMode.value == ViewMode.list ? ViewMode.grid : ViewMode.list;
 
@@ -286,18 +312,20 @@ class BenchmarkController extends GetxController {
     final randomMovies =
         List.generate(10, (i) => movies[_random.nextInt(movies.length)].id)
             .toSet();
-    UIRTracker.markStateChange('favorites_update');
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     expandedMovies.value = randomMovies;
 
     // 4. Update filter
-    UIRTracker.markStateChange('filter_update');
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     final randomGenre = [28, 35, 18, 27, 16][_random.nextInt(5)];
     final filtered =
         movies.where((m) => m.genreIds.contains(randomGenre)).toList();
 
     filteredMovies.value = filtered;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     statusText.value =
         'Cascade ${progressCounter.value + 1}: ${filtered.length} movies';
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     progressCounter.value = progressCounter.value + 1;
   }
 
@@ -306,12 +334,17 @@ class BenchmarkController extends GetxController {
     final loadedMovies =
         await apiClient.loadAllMovies(totalItems: math.min(dataSize, 1000));
 
-    UIRTracker.markStateChange('movies_update');
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     movies.value = loadedMovies;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     filteredMovies.value = loadedMovies;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     loadedCount.value = loadedMovies.length;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     multiCounters.value = List.filled(20, 0);
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     loadingStates.value = List.filled(20, false);
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     status.value = BenchmarkStatus.running;
 
     int frameCount = 0;
@@ -331,7 +364,7 @@ class BenchmarkController extends GetxController {
   }
 
   void _highFrequencyTick() {
-    UIRTracker.markStateChange('highfreq_update');
+    UIPerformanceTracker.markStateUpdate(); // DODANE
 
     // Update multiple reactive variables
     final newCounters = multiCounters.map((c) => c + 1).toList();
@@ -339,15 +372,21 @@ class BenchmarkController extends GetxController {
         loadingStates.map((s) => _random.nextBool()).toList();
 
     progressCounter.value = progressCounter.value + 1;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     statusText.value = 'Frame ${progressCounter.value}';
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     multiCounters.value = newCounters;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     loadingStates.value = newLoadingStates;
   }
 
   void completeTest() {
     endTime = DateTime.now();
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     status.value = BenchmarkStatus.completed;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     isAutoScrolling.value = false;
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     isStreamingActive.value = false;
     _completeTestWithReports();
   }
@@ -355,18 +394,18 @@ class BenchmarkController extends GetxController {
   void _completeTestWithReports() {
     _scenarioTimer?.cancel();
     MemoryMonitor.stopMonitoring();
-    UIRTracker.stopTracking();
+    UIPerformanceTracker.stopTracking(); // ZMIANA
 
     final memoryReport = MemoryMonitor.generateReport();
-    final uirReport = UIRTracker.generateReport();
+    final upmReport = UIPerformanceTracker.generateReport(); // ZMIANA
 
     print('=== GetX Memory Report for ${scenarioType.value} ===');
     print(memoryReport.toFormattedString());
-    print('=== GetX UIR Report for ${scenarioType.value} ===');
-    print(uirReport.toFormattedString());
+    print('=== GetX UMP Report for ${scenarioType.value} ==='); // ZMIANA
+    print(upmReport.toFormattedString());
   }
 
-  // Zachowane stare metody
+  // Zachowane stare metody z dodanym state update tracking
   Future<void> loadMoreMovies() async {
     if (isLoadingMore || loadedCount.value >= dataSize) return;
 
@@ -379,17 +418,22 @@ class BenchmarkController extends GetxController {
 
       final allMovies = [...movies, ...moviesToAdd];
 
-      UIRTracker.markStateChange('movies_update');
+      UIPerformanceTracker.markStateUpdate(); // DODANE
       movies.value = allMovies;
+      UIPerformanceTracker.markStateUpdate(); // DODANE
       filteredMovies.value = allMovies;
+      UIPerformanceTracker.markStateUpdate(); // DODANE
       loadedCount.value = allMovies.length;
 
       if (allMovies.length >= dataSize) {
+        UIPerformanceTracker.markStateUpdate(); // DODANE
         isAutoScrolling.value = false;
         completeTest();
       }
     } catch (e) {
+      UIPerformanceTracker.markStateUpdate(); // DODANE
       error.value = e.toString();
+      UIPerformanceTracker.markStateUpdate(); // DODANE
       status.value = BenchmarkStatus.error;
       _completeTestWithReports();
     } finally {
@@ -398,14 +442,14 @@ class BenchmarkController extends GetxController {
   }
 
   void filterMovies(List<int> genreIds) {
-    UIRTracker.markStateChange('movies_update');
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     filteredMovies.value = movies
         .where((movie) => movie.genreIds.any((id) => genreIds.contains(id)))
         .toList();
   }
 
   void sortMovies({required bool byReleaseDate}) {
-    UIRTracker.markStateChange('movies_update');
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     final sorted = [...filteredMovies];
     if (byReleaseDate) {
       sorted.sort((a, b) => b.releaseDate.compareTo(a.releaseDate));
@@ -416,19 +460,19 @@ class BenchmarkController extends GetxController {
   }
 
   void toggleViewMode() {
-    UIRTracker.markStateChange('viewmode_update');
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     viewMode.value =
         viewMode.value == ViewMode.list ? ViewMode.grid : ViewMode.list;
   }
 
   void toggleAccessibilityMode() {
-    UIRTracker.markStateChange('accessibility_update');
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     isAccessibilityMode.value = !isAccessibilityMode.value;
     Get.find<ThemeController>().setAccessibilityMode(isAccessibilityMode.value);
   }
 
   void toggleMovieExpanded(int movieId) {
-    UIRTracker.markStateChange('expand_update');
+    UIPerformanceTracker.markStateUpdate(); // DODANE
     if (expandedMovies.contains(movieId)) {
       expandedMovies.remove(movieId);
     } else {

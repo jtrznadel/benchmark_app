@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:moviedb_benchmark/core/utils/enums.dart';
+import 'package:moviedb_benchmark/core/utils/uip_tracker.dart';
+import 'dart:async';
 import 'package:moviedb_benchmark/features/getx_implementation/benchmark/presentation/controllers/benchmark_controller.dart';
-
-import 'package:moviedb_benchmark/core/utils/uir_tracker.dart';
+import 'package:moviedb_benchmark/features/bloc_implementation/benchmark/bloc/benchmark_state.dart';
 import '../widgets/getx_benchmark_controls.dart';
 import '../../../../../core/widgets/movie_list_item.dart';
 import '../../../../../core/widgets/movie_grid_item.dart';
-import 'package:moviedb_benchmark/core/utils/enums.dart';
 
 class GetXBenchmarkPage extends StatefulWidget {
-  final ScenarioType scenarioType; // ZMIANA: String -> ScenarioType
+  final ScenarioType scenarioType;
   final int dataSize;
 
   const GetXBenchmarkPage({
@@ -30,7 +31,7 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
   void initState() {
     super.initState();
     _scrollController = ScrollController();
-    UIRTracker.startTracking(); // DODANE
+    UIPerformanceTracker.startTracking(); // ZMIANA
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.startBenchmark(widget.scenarioType, widget.dataSize);
@@ -40,7 +41,7 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
   @override
   void dispose() {
     _scrollController.dispose();
-    UIRTracker.stopTracking(); // DODANE
+    UIPerformanceTracker.stopTracking(); // ZMIANA
     super.dispose();
   }
 
@@ -165,7 +166,7 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
   }
 
   Widget _buildEnrichedMovieView() {
-    UIRTracker.markWidgetRebuild('EnrichedMovieView', 'movies_update');
+    UIPerformanceTracker.markWidgetRebuild(); // ZMIANA - usunięto parametr
     return Obx(() => ListView.builder(
           padding: const EdgeInsets.all(8),
           itemCount: controller.enrichedMovies.length,
@@ -200,7 +201,7 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
   }
 
   Widget _buildHighFrequencyView() {
-    UIRTracker.markWidgetRebuild('HighFrequencyView', 'highfreq_update');
+    UIPerformanceTracker.markWidgetRebuild(); // ZMIANA - usunięto parametr
     return Obx(() => Padding(
           padding: const EdgeInsets.all(16),
           child: Column(

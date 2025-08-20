@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:async';
 import 'package:moviedb_benchmark/core/api/tmdb_api__client.dart';
+import 'package:moviedb_benchmark/core/utils/enums.dart';
 import 'package:moviedb_benchmark/core/utils/memory_monitor.dart';
-import 'package:moviedb_benchmark/core/utils/uir_tracker.dart';
+import 'package:moviedb_benchmark/core/utils/uip_tracker.dart';
 import 'package:moviedb_benchmark/features/bloc_implementation/theme/bloc/theme_block.dart';
 import '../../../../../core/widgets/movie_list_item.dart';
 import '../../../../../core/widgets/movie_grid_item.dart';
@@ -12,10 +13,9 @@ import '../../../theme/bloc/theme_event.dart';
 import '../../bloc/benchmark_bloc.dart';
 import '../../bloc/benchmark_event.dart';
 import '../../bloc/benchmark_state.dart';
-import 'package:moviedb_benchmark/core/utils/enums.dart';
 
 class BlocBenchmarkPage extends StatefulWidget {
-  final ScenarioType scenarioType; // ZMIANA: String -> ScenarioType
+  final ScenarioType scenarioType;
   final int dataSize;
 
   const BlocBenchmarkPage({
@@ -37,9 +37,7 @@ class _BlocBenchmarkPageState extends State<BlocBenchmarkPage> {
           create: (context) => BenchmarkBloc(
             apiClient: context.read<TmdbApiClient>(),
           )..add(StartBenchmark(
-              scenarioType:
-                  widget.scenarioType, // ZMIANA: scenarioId -> scenarioType
-              dataSize: widget.dataSize)),
+              scenarioType: widget.scenarioType, dataSize: widget.dataSize)),
         ),
         BlocProvider(
           create: (context) => ThemeBloc(),
@@ -54,7 +52,7 @@ class _BlocBenchmarkPageState extends State<BlocBenchmarkPage> {
 }
 
 class _BlocBenchmarkPageContent extends StatefulWidget {
-  final ScenarioType scenarioType; // ZMIANA: String -> ScenarioType
+  final ScenarioType scenarioType;
   final int dataSize;
 
   const _BlocBenchmarkPageContent({
@@ -75,14 +73,14 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
   void initState() {
     super.initState();
     _scrollController = ScrollController();
-    UIRTracker.startTracking(); // DODANE
+    UIPerformanceTracker.startTracking(); // ZMIANA
   }
 
   @override
   void dispose() {
     _scrollTimer?.cancel();
     _scrollController.dispose();
-    UIRTracker.stopTracking(); // DODANE
+    UIPerformanceTracker.stopTracking(); // ZMIANA
     super.dispose();
   }
 
@@ -227,7 +225,7 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
   }
 
   Widget _buildEnrichedMovieView(BenchmarkState state) {
-    UIRTracker.markWidgetRebuild('EnrichedMovieView', 'movies_update');
+    UIPerformanceTracker.markWidgetRebuild(); // ZMIANA - usunięto parametr
     return ListView.builder(
       padding: const EdgeInsets.all(8),
       itemCount: state.enrichedMovies.length,
@@ -262,7 +260,7 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
   }
 
   Widget _buildHighFrequencyView(BenchmarkState state) {
-    UIRTracker.markWidgetRebuild('HighFrequencyView', 'highfreq_update');
+    UIPerformanceTracker.markWidgetRebuild(); // ZMIANA - usunięto parametr
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
