@@ -16,8 +16,6 @@ class ProcessingInfoDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    UIPerformanceTracker.markWidgetRebuild();
-
     return Container(
       padding: const EdgeInsets.all(16),
       margin: const EdgeInsets.all(8),

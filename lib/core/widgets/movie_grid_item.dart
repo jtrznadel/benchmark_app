@@ -20,7 +20,6 @@ class MovieGridItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // ZMIANA - proste counting
-    UIPerformanceTracker.markWidgetRebuild();
 
     return Card(
       child: InkWell(

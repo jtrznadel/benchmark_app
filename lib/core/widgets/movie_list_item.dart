@@ -20,7 +20,6 @@ class MovieListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // ZMIANA - proste counting bez parametrów
-    UIPerformanceTracker.markWidgetRebuild();
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),

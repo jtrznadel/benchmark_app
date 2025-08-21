@@ -20,8 +20,6 @@ class EnhancedMovieCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    UIPerformanceTracker.markWidgetRebuild();
-
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
       child: Padding(
@@ -111,7 +109,11 @@ class EnhancedMovieCard extends StatelessWidget {
 
   Widget _buildLikeButton() {
     return GestureDetector(
-      onTap: onLikeTap,
+      onTap: () {
+        // Oznacz akcję użytkownika dla pomiaru latencji
+        UIPerformanceTracker.markAction();
+        onLikeTap?.call();
+      },
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -161,7 +163,11 @@ class EnhancedMovieCard extends StatelessWidget {
 
   Widget _buildDownloadButton() {
     return GestureDetector(
-      onTap: onDownloadTap,
+      onTap: () {
+        // Oznacz akcję użytkownika dla pomiaru latencji
+        UIPerformanceTracker.markAction();
+        onDownloadTap?.call();
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
