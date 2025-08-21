@@ -28,18 +28,20 @@ class GetXHomePage extends StatelessWidget {
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 20),
-                GetXScenarioSelector(
-                  selectedScenario: homeController.selectedScenario.value,
-                  dataSize: homeController.dataSize.value,
-                  onScenarioSelected: homeController.selectScenario,
+                Expanded(
+                  child: GetXScenarioSelector(
+                    selectedScenario: homeController.selectedScenario.value,
+                    dataSize: homeController.dataSize.value,
+                    onScenarioSelected: homeController.selectScenario,
+                  ),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: homeController.selectedScenario.value != null
                       ? () {
                           Get.to(() => GetXBenchmarkPage(
-                                scenarioType: homeController.selectedScenario
-                                    .value!, // ZMIANA: scenarioId -> scenarioType
+                                scenarioType:
+                                    homeController.selectedScenario.value!,
                                 dataSize: homeController.dataSize.value,
                               ));
                         }
@@ -47,6 +49,7 @@ class GetXHomePage extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.all(16),
                     backgroundColor: Colors.purple,
+                    foregroundColor: Colors.white,
                   ),
                   child: const Text(
                     'Start testu',

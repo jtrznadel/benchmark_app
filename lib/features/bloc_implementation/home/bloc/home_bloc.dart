@@ -9,7 +9,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   void _onSelectScenario(SelectScenario event, Emitter<HomeState> emit) {
     emit(state.copyWith(
-      selectedScenario: event.scenarioId,
+      selectedScenario: event.scenarioType,
       dataSize: event.dataSize,
     ));
   }

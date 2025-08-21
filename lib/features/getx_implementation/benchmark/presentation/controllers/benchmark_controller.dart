@@ -1,65 +1,57 @@
-import 'dart:math' as math;
-
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
 import 'dart:async';
 import 'dart:math';
-
+import 'package:get/get.dart';
 import 'package:moviedb_benchmark/core/api/tmdb_api__client.dart';
 import 'package:moviedb_benchmark/core/models/movie.dart';
-import 'package:moviedb_benchmark/core/models/enriched_movie.dart';
+import 'package:moviedb_benchmark/core/models/processing_state.dart';
+import 'package:moviedb_benchmark/core/models/ui_element_state.dart';
 import 'package:moviedb_benchmark/core/utils/enums.dart';
 import 'package:moviedb_benchmark/core/utils/memory_monitor.dart';
 import 'package:moviedb_benchmark/core/utils/uip_tracker.dart';
-import 'package:moviedb_benchmark/features/getx_implementation/theme/controllers/theme_controller.dart';
-import 'package:moviedb_benchmark/features/bloc_implementation/benchmark/bloc/benchmark_state.dart';
 
 class BenchmarkController extends GetxController {
   final TmdbApiClient apiClient = Get.put(TmdbApiClient());
 
+  // Core state
   final status = BenchmarkStatus.initial.obs;
-  final scenarioType = ScenarioType.apiStreaming.obs;
+  final scenarioType = ScenarioType.cpuProcessingPipeline.obs;
   final movies = <Movie>[].obs;
-  final filteredMovies = <Movie>[].obs;
-  final enrichedMovies = <EnrichedMovie>[].obs;
-  final viewMode = ViewMode.list.obs;
-  final isAccessibilityMode = false.obs;
-  final expandedMovies = <int>{}.obs;
   final error = Rx<String?>(null);
   final loadedCount = 0.obs;
-  final isAutoScrolling = false.obs;
 
-  // Nowe reactive variables
-  final progressCounter = 0.obs;
-  final statusText = ''.obs;
-  final multiCounters = <int>[].obs;
-  final loadingStates = <bool>[].obs;
-  final currentFilterIndex = 0.obs;
-  final isStreamingActive = false.obs;
+  // S01 - CPU Processing specific
+  final processingState = ProcessingState().obs;
+  final currentProcessingCycle = 0.obs;
+  final genreRotation = <String>[].obs;
+
+  // S02 - Memory State History specific
+  final stateHistory = <ProcessingState>[].obs;
+  final currentHistoryIndex = 0.obs;
+  final operationLog = <String>[].obs;
+
+  // S03 - UI Updates specific
+  final uiElementStates = <int, UIElementState>{}.obs;
+  final frameCounter = 0.obs;
+  final lastUpdatedMovieIds = <int>[].obs;
 
   int dataSize = 0;
   DateTime? startTime;
   DateTime? endTime;
-  int _currentPage = 1;
-  bool isLoadingMore = false;
   Timer? _scenarioTimer;
-  final Random _random = Random();
+  final Random _random = Random(42); // Fixed seed for consistency
 
-  // Predefiniowane filtry dla S02
-  final List<Map<String, dynamic>> _predefinedFilters = [
-    {'year': 2020, 'genre': null, 'rating': null},
-    {'year': null, 'genre': 28, 'rating': null}, // Action
-    {'year': null, 'genre': 35, 'rating': null}, // Comedy
-    {'year': null, 'genre': 18, 'rating': null}, // Drama
-    {'year': null, 'genre': null, 'rating': 7.0},
-    {'year': null, 'genre': null, 'rating': 8.0},
-    {'year': 2021, 'genre': 28, 'rating': null},
-    {'year': 2022, 'genre': 35, 'rating': null},
-    {'year': 2023, 'genre': 18, 'rating': 7.5},
-    {'year': null, 'genre': 27, 'rating': null}, // Horror
-    {'year': null, 'genre': 16, 'rating': null}, // Animation
-    {'year': 2024, 'genre': null, 'rating': 6.0},
+  // Predefined configurations
+  final List<String> _genreNames = [
+    'Action',
+    'Comedy',
+    'Drama',
+    'Horror',
+    'Romance',
+    'Sci-Fi'
   ];
+  final List<String> _sortTypes = ['rating', 'date', 'title', 'popularity'];
+  final List<String> _groupTypes = ['decade', 'genre', 'rating_range'];
+  final List<String> _filterTypes = ['genre', 'year', 'rating', 'language'];
 
   @override
   void onClose() {
@@ -69,7 +61,7 @@ class BenchmarkController extends GetxController {
   }
 
   void startBenchmark(ScenarioType scenario, int size) async {
-    UIPerformanceTracker.markStateUpdate(); // DODANE
+    UIPerformanceTracker.markStateUpdate();
     scenarioType.value = scenario;
     dataSize = size;
     startTime = DateTime.now();
@@ -77,406 +69,570 @@ class BenchmarkController extends GetxController {
 
     MemoryMonitor.stopMonitoring();
     MemoryMonitor.startMonitoring(interval: const Duration(milliseconds: 100));
-    UIPerformanceTracker.startTracking(); // ZMIANA
+    UIPerformanceTracker.startTracking();
 
     try {
+      // Load initial data
+      final loadedMovies = await apiClient.loadAllMovies(totalItems: size);
+
+      UIPerformanceTracker.markStateUpdate();
+      movies.value = loadedMovies;
+      UIPerformanceTracker.markStateUpdate();
+      loadedCount.value = loadedMovies.length;
+      UIPerformanceTracker.markStateUpdate();
+      genreRotation.value = _genreNames;
+      UIPerformanceTracker.markStateUpdate();
+      status.value = BenchmarkStatus.running;
+
       switch (scenario) {
-        case ScenarioType.apiStreaming:
-          await _runApiStreamingScenario(size);
+        case ScenarioType.cpuProcessingPipeline:
+          await _runCpuProcessingPipeline();
           break;
-        case ScenarioType.realtimeFiltering:
-          await _runRealtimeFilteringScenario(size);
+        case ScenarioType.memoryStateHistory:
+          await _runMemoryStateHistory();
           break;
-        case ScenarioType.memoryPressure:
-          await _runMemoryPressureScenario(size);
-          break;
-        case ScenarioType.cascadingUpdates:
-          await _runCascadingUpdatesScenario(size);
-          break;
-        case ScenarioType.highFrequency:
-          await _runHighFrequencyScenario(size);
+        case ScenarioType.uiGranularUpdates:
+          await _runUiGranularUpdates();
           break;
       }
     } catch (e) {
-      UIPerformanceTracker.markStateUpdate(); // DODANE
+      UIPerformanceTracker.markStateUpdate();
       status.value = BenchmarkStatus.error;
+      UIPerformanceTracker.markStateUpdate();
       error.value = e.toString();
       _completeTestWithReports();
     }
   }
 
-  // S01 - API Data Streaming
-  Future<void> _runApiStreamingScenario(int dataSize) async {
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    status.value = BenchmarkStatus.running;
-    isStreamingActive.value = true;
-
-    final maxPages = (dataSize / 20).ceil();
-    _currentPage = 1;
-
-    _scenarioTimer =
-        Timer.periodic(const Duration(milliseconds: 200), (timer) async {
-      if (_currentPage > maxPages) {
+  // S01 - CPU Processing Pipeline Implementation
+  Future<void> _runCpuProcessingPipeline() async {
+    _scenarioTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (currentProcessingCycle.value >= 600) {
+        // 60 seconds
         timer.cancel();
-        completeTest();
+        _completeTest();
         return;
       }
 
-      await _streamingTick();
-      _currentPage++;
+      final genreIndex = currentProcessingCycle.value % _genreNames.length;
+      _processMoviesByGenre(_genreNames[genreIndex]);
     });
   }
 
-  Future<void> _streamingTick() async {
-    try {
-      UIPerformanceTracker.markStateUpdate(); // DODANE
+  void _processMoviesByGenre(String genre) {
+    UIPerformanceTracker.markStateUpdate();
 
-      final newMovies = await apiClient.getPopularMovies(page: _currentPage);
-      final allMovies = [...movies, ...newMovies];
+    // Step 1: Filter by genre
+    final filtered = movies
+        .where(
+            (movie) => movie.genreIds.any((id) => _getGenreForId(id) == genre))
+        .toList();
 
-      // Każda aktualizacja reactive variable = state update
-      movies.value = allMovies;
-      UIPerformanceTracker.markStateUpdate(); // DODANE
-      filteredMovies.value = allMovies;
-      UIPerformanceTracker.markStateUpdate(); // DODANE
-      loadedCount.value = allMovies.length;
-      UIPerformanceTracker.markStateUpdate(); // DODANE
-      progressCounter.value = _currentPage;
-      UIPerformanceTracker.markStateUpdate(); // DODANE
-      statusText.value = 'Loading page $_currentPage...';
-    } catch (e) {
-      // Handle error but continue
+    final newProcessingState = processingState.value.copyWith(
+      filteredMovies: filtered,
+      currentGenre: genre,
+      processingStep: 1,
+    );
+
+    processingState.value = newProcessingState;
+    UIPerformanceTracker.markStateUpdate();
+    currentProcessingCycle.value = currentProcessingCycle.value + 1;
+
+    // Step 2: Calculate average rating
+    _calculateAverageRating();
+  }
+
+  void _calculateAverageRating() {
+    UIPerformanceTracker.markStateUpdate();
+
+    final filtered = processingState.value.filteredMovies;
+    final averageRating = filtered.isEmpty
+        ? 0.0
+        : filtered.map((m) => m.voteAverage).reduce((a, b) => a + b) /
+            filtered.length;
+
+    final metrics =
+        Map<String, double>.from(processingState.value.calculatedMetrics);
+    metrics['averageRating'] = averageRating;
+
+    final newProcessingState = processingState.value.copyWith(
+      calculatedMetrics: metrics,
+      processingStep: 2,
+    );
+
+    processingState.value = newProcessingState;
+
+    // Step 3: Sort by metric
+    _sortMoviesByMetric();
+  }
+
+  void _sortMoviesByMetric() {
+    UIPerformanceTracker.markStateUpdate();
+
+    final filtered = [...processingState.value.filteredMovies];
+    final averageRating =
+        processingState.value.calculatedMetrics['averageRating'] ?? 0.0;
+
+    filtered.sort((a, b) {
+      final aDiff = (a.voteAverage - averageRating).abs();
+      final bDiff = (b.voteAverage - averageRating).abs();
+      return aDiff.compareTo(bDiff);
+    });
+
+    final newProcessingState = processingState.value.copyWith(
+      sortedMovies: filtered,
+      processingStep: 3,
+    );
+
+    processingState.value = newProcessingState;
+
+    // Step 4: Group by decade
+    _groupMoviesByDecade();
+  }
+
+  void _groupMoviesByDecade() {
+    UIPerformanceTracker.markStateUpdate();
+
+    final sorted = processingState.value.sortedMovies;
+    final grouped = <String, List<Movie>>{};
+
+    for (final movie in sorted) {
+      final year = int.tryParse(movie.releaseDate.split('-').first) ?? 2000;
+      final decade = '${(year ~/ 10) * 10}s';
+
+      grouped.putIfAbsent(decade, () => []);
+      grouped[decade]!.add(movie);
+    }
+
+    final newProcessingState = processingState.value.copyWith(
+      groupedMovies: grouped,
+      processingStep: 4,
+    );
+
+    processingState.value = newProcessingState;
+
+    // Step 5: Final update
+    _updateFinalProcessingState();
+  }
+
+  void _updateFinalProcessingState() {
+    UIPerformanceTracker.markStateUpdate();
+
+    final newProcessingState = processingState.value.copyWith(
+      processingStep: 5,
+      timestamp: DateTime.now(),
+    );
+
+    processingState.value = newProcessingState;
+  }
+
+  // S02 - Memory State History Implementation
+  Future<void> _runMemoryStateHistory() async {
+    int cycle = 0;
+    _scenarioTimer = Timer.periodic(const Duration(milliseconds: 150), (timer) {
+      if (cycle >= 400) {
+        // ~60 seconds
+        timer.cancel();
+        _completeTest();
+        return;
+      }
+
+      // Forward operations (4 steps)
+      applyFilterConfiguration(
+          _filterTypes[cycle % _filterTypes.length], cycle);
+      _applySortConfiguration(_sortTypes[cycle % _sortTypes.length]);
+      _applyGroupConfiguration(_groupTypes[cycle % _groupTypes.length]);
+      _applyPaginationConfiguration(cycle % 10);
+
+      // Backward operations (rollback every 8th cycle)
+      if (cycle % 8 == 7) {
+        undoToStep(max(0, currentHistoryIndex.value - 4));
+      }
+
+      cycle++;
+    });
+  }
+
+  void applyFilterConfiguration(String filterType, dynamic filterValue) {
+    UIPerformanceTracker.markStateUpdate();
+
+    final currentState = processingState.value;
+    final newState = ProcessingState(
+      rawMovies: movies,
+      filteredMovies: _applyFilter(movies, filterType, filterValue),
+      sortedMovies: currentState.sortedMovies,
+      groupedMovies: currentState.groupedMovies,
+      calculatedMetrics: currentState.calculatedMetrics,
+      processingStep: currentState.processingStep + 1,
+      timestamp: DateTime.now(),
+    );
+
+    final newHistory = [...stateHistory, newState];
+    final newLog = [...operationLog, 'Filter: $filterType'];
+
+    processingState.value = newState;
+    UIPerformanceTracker.markStateUpdate();
+    stateHistory.value = newHistory;
+    UIPerformanceTracker.markStateUpdate();
+    currentHistoryIndex.value = newHistory.length - 1;
+    UIPerformanceTracker.markStateUpdate();
+    operationLog.value = newLog;
+  }
+
+  void _applySortConfiguration(String sortType) {
+    UIPerformanceTracker.markStateUpdate();
+
+    final currentState = processingState.value;
+    final sorted = [...currentState.filteredMovies];
+    _applySorting(sorted, sortType);
+
+    final newState = currentState.copyWith(
+      sortedMovies: sorted,
+      currentSortType: sortType,
+      processingStep: currentState.processingStep + 1,
+      timestamp: DateTime.now(),
+    );
+
+    final newHistory = [...stateHistory, newState];
+    final newLog = [...operationLog, 'Sort: $sortType'];
+
+    processingState.value = newState;
+    UIPerformanceTracker.markStateUpdate();
+    stateHistory.value = newHistory;
+    UIPerformanceTracker.markStateUpdate();
+    currentHistoryIndex.value = newHistory.length - 1;
+    UIPerformanceTracker.markStateUpdate();
+    operationLog.value = newLog;
+  }
+
+  void _applyGroupConfiguration(String groupType) {
+    UIPerformanceTracker.markStateUpdate();
+
+    final currentState = processingState.value;
+    final grouped = _applyGrouping(currentState.sortedMovies, groupType);
+
+    final newState = currentState.copyWith(
+      groupedMovies: grouped,
+      currentGroupType: groupType,
+      processingStep: currentState.processingStep + 1,
+      timestamp: DateTime.now(),
+    );
+
+    final newHistory = [...stateHistory, newState];
+    final newLog = [...operationLog, 'Group: $groupType'];
+
+    processingState.value = newState;
+    UIPerformanceTracker.markStateUpdate();
+    stateHistory.value = newHistory;
+    UIPerformanceTracker.markStateUpdate();
+    currentHistoryIndex.value = newHistory.length - 1;
+    UIPerformanceTracker.markStateUpdate();
+    operationLog.value = newLog;
+  }
+
+  void _applyPaginationConfiguration(int page) {
+    UIPerformanceTracker.markStateUpdate();
+
+    final currentState = processingState.value;
+    final newMetrics = Map<String, double>.from(currentState.calculatedMetrics);
+    newMetrics['currentPage'] = page.toDouble();
+
+    final newState = currentState.copyWith(
+      calculatedMetrics: newMetrics,
+      processingStep: currentState.processingStep + 1,
+      timestamp: DateTime.now(),
+    );
+
+    final newHistory = [...stateHistory, newState];
+    final newLog = [...operationLog, 'Paginate: $page'];
+
+    processingState.value = newState;
+    UIPerformanceTracker.markStateUpdate();
+    stateHistory.value = newHistory;
+    UIPerformanceTracker.markStateUpdate();
+    currentHistoryIndex.value = newHistory.length - 1;
+    UIPerformanceTracker.markStateUpdate();
+    operationLog.value = newLog;
+  }
+
+  void undoToStep(int stepNumber) {
+    UIPerformanceTracker.markStateUpdate();
+
+    if (stepNumber >= 0 && stepNumber < stateHistory.length) {
+      final restoredState = stateHistory[stepNumber];
+      final newLog = [...operationLog, 'Undo to step: $stepNumber'];
+
+      processingState.value = restoredState;
+      UIPerformanceTracker.markStateUpdate();
+      currentHistoryIndex.value = stepNumber;
+      UIPerformanceTracker.markStateUpdate();
+      operationLog.value = newLog;
     }
   }
 
-  // S02 - Real-time Data Filtering
-  Future<void> _runRealtimeFilteringScenario(int dataSize) async {
-    // Load initial data
-    final loadedMovies = await apiClient.loadAllMovies(totalItems: dataSize);
+  // S03 - UI Granular Updates Implementation
+  Future<void> _runUiGranularUpdates() async {
+    // Initialize UI states for all movies
+    final initialStates = <int, UIElementState>{};
+    for (final movie in movies) {
+      initialStates[movie.id] = UIElementState(movieId: movie.id);
+    }
 
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    movies.value = loadedMovies;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    filteredMovies.value = loadedMovies;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    loadedCount.value = loadedMovies.length;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    currentFilterIndex.value = 0;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    status.value = BenchmarkStatus.running;
+    UIPerformanceTracker.markStateUpdate();
+    uiElementStates.value = initialStates;
 
-    // Start filtering cycle
-    _scenarioTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      if (currentFilterIndex.value >= _predefinedFilters.length * 5) {
-        timer.cancel();
-        completeTest();
-        return;
-      }
-
-      _filteringTick();
-    });
-  }
-
-  void _filteringTick() {
-    final filterIndex = currentFilterIndex.value % _predefinedFilters.length;
-    final filter = _predefinedFilters[filterIndex];
-
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-
-    var filtered = movies.where((movie) {
-      bool matchesYear = filter['year'] == null ||
-          movie.releaseDate.startsWith(filter['year'].toString());
-      bool matchesGenre =
-          filter['genre'] == null || movie.genreIds.contains(filter['genre']);
-      bool matchesRating =
-          filter['rating'] == null || movie.voteAverage >= filter['rating'];
-
-      return matchesYear && matchesGenre && matchesRating;
-    }).toList();
-
-    filteredMovies.value = filtered;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    currentFilterIndex.value = currentFilterIndex.value + 1;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    statusText.value =
-        'Filter ${currentFilterIndex.value}: ${filtered.length} movies';
-  }
-
-  // S03 - Memory Pressure Simulation
-  Future<void> _runMemoryPressureScenario(int dataSize) async {
-    final loadedMovies = await apiClient.loadAllMovies(totalItems: dataSize);
-
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    movies.value = loadedMovies;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    filteredMovies.value = loadedMovies;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    loadedCount.value = loadedMovies.length;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    status.value = BenchmarkStatus.running;
-
-    int cycleCount = 0;
-    _scenarioTimer = Timer.periodic(const Duration(milliseconds: 150), (timer) {
-      cycleCount++;
-
-      if (cycleCount > 133) {
-        // ~20 seconds
-        timer.cancel();
-        completeTest();
-        return;
-      }
-
-      if (cycleCount % 20 == 0) {
-        _simplifyMoviesData();
-      } else {
-        _enrichMoviesData();
-      }
-    });
-  }
-
-  void _enrichMoviesData() {
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-
-    final enriched = movies
-        .map((movie) => EnrichedMovie(
-              baseMovie: movie,
-              cast: List.generate(10, (i) => 'Actor ${movie.id}_$i'),
-              crew: List.generate(15, (i) => 'Crew ${movie.id}_$i'),
-              reviews: List.generate(
-                  5,
-                  (i) => MovieReview(
-                        author: 'User${movie.id}_$i',
-                        content:
-                            'Review content for ${movie.title} - review number $i' *
-                                10,
-                        rating: _random.nextDouble() * 10,
-                      )),
-              watchProgress: _random.nextDouble(),
-              isFavorite: _random.nextBool(),
-              isInWatchlist: _random.nextBool(),
-            ))
-        .toList();
-
-    enrichedMovies.value = enriched;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    statusText.value = 'Enriched: ${enriched.length} movies with extra data';
-  }
-
-  void _simplifyMoviesData() {
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    enrichedMovies.clear();
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    statusText.value = 'Simplified: Removed extra data';
-  }
-
-  // S04 - Cascading State Updates
-  Future<void> _runCascadingUpdatesScenario(int dataSize) async {
-    final loadedMovies = await apiClient.loadAllMovies(totalItems: dataSize);
-
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    movies.value = loadedMovies;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    filteredMovies.value = loadedMovies;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    loadedCount.value = loadedMovies.length;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    status.value = BenchmarkStatus.running;
-
-    int updateCycle = 0;
-    _scenarioTimer = Timer.periodic(const Duration(milliseconds: 300), (timer) {
-      updateCycle++;
-
-      if (updateCycle > 100) {
-        // ~30 seconds
-        timer.cancel();
-        completeTest();
-        return;
-      }
-
-      _cascadingUpdateTick();
-    });
-  }
-
-  void _cascadingUpdateTick() {
-    // 1. Global theme change
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    isAccessibilityMode.value = !isAccessibilityMode.value;
-    Get.find<ThemeController>().setAccessibilityMode(isAccessibilityMode.value);
-
-    // 2. View mode change
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    viewMode.value =
-        viewMode.value == ViewMode.list ? ViewMode.grid : ViewMode.list;
-
-    // 3. Toggle favorites on random movies
-    final randomMovies =
-        List.generate(10, (i) => movies[_random.nextInt(movies.length)].id)
-            .toSet();
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    expandedMovies.value = randomMovies;
-
-    // 4. Update filter
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    final randomGenre = [28, 35, 18, 27, 16][_random.nextInt(5)];
-    final filtered =
-        movies.where((m) => m.genreIds.contains(randomGenre)).toList();
-
-    filteredMovies.value = filtered;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    statusText.value =
-        'Cascade ${progressCounter.value + 1}: ${filtered.length} movies';
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    progressCounter.value = progressCounter.value + 1;
-  }
-
-  // S05 - High-Frequency Updates
-  Future<void> _runHighFrequencyScenario(int dataSize) async {
-    final loadedMovies =
-        await apiClient.loadAllMovies(totalItems: math.min(dataSize, 1000));
-
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    movies.value = loadedMovies;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    filteredMovies.value = loadedMovies;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    loadedCount.value = loadedMovies.length;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    multiCounters.value = List.filled(20, 0);
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    loadingStates.value = List.filled(20, false);
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    status.value = BenchmarkStatus.running;
-
-    int frameCount = 0;
     _scenarioTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
       // 60 FPS
-      frameCount++;
-
-      if (frameCount > 1200) {
-        // 20 seconds at 60 FPS
+      if (frameCounter.value >= 1800) {
+        // 30 seconds
         timer.cancel();
-        completeTest();
+        _completeTest();
         return;
       }
 
-      _highFrequencyTick();
+      // Update different percentages of movies per frame
+      final movieCount = movies.length;
+      final likeUpdates = _getRandomMovieIds(movieCount, 0.10); // 10%
+      final viewUpdates = _getRandomMovieIds(movieCount, 0.20); // 20%
+      final progressUpdates = _getRandomMovieIds(movieCount, 0.05); // 5%
+      final downloadUpdates = _getRandomMovieIds(movieCount, 0.03); // 3%
+      final ratingUpdates = _getRandomMovieIds(movieCount, 0.01); // 1%
+
+      updateMovieLikeStatus(likeUpdates);
+      updateMovieViewCount(viewUpdates);
+      updateMovieProgress(progressUpdates);
+      updateMovieDownloadStatus(downloadUpdates);
+      updateMovieRating(ratingUpdates);
     });
   }
 
-  void _highFrequencyTick() {
-    UIPerformanceTracker.markStateUpdate(); // DODANE
+  void updateMovieLikeStatus(List<int> movieIds) {
+    UIPerformanceTracker.markStateUpdate();
 
-    // Update multiple reactive variables
-    final newCounters = multiCounters.map((c) => c + 1).toList();
-    final newLoadingStates =
-        loadingStates.map((s) => _random.nextBool()).toList();
+    final newStates = Map<int, UIElementState>.from(uiElementStates);
+    for (final movieId in movieIds) {
+      final currentState = newStates[movieId];
+      if (currentState != null) {
+        newStates[movieId] = currentState.copyWith(
+          isLiked: !currentState.isLiked,
+          lastUpdated: DateTime.now(),
+        );
+      }
+    }
 
-    progressCounter.value = progressCounter.value + 1;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    statusText.value = 'Frame ${progressCounter.value}';
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    multiCounters.value = newCounters;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    loadingStates.value = newLoadingStates;
+    uiElementStates.value = newStates;
+    UIPerformanceTracker.markStateUpdate();
+    frameCounter.value = frameCounter.value + 1;
+    UIPerformanceTracker.markStateUpdate();
+    lastUpdatedMovieIds.value = movieIds;
   }
 
-  void completeTest() {
+  void updateMovieViewCount(List<int> movieIds) {
+    UIPerformanceTracker.markStateUpdate();
+
+    final newStates = Map<int, UIElementState>.from(uiElementStates);
+    for (final movieId in movieIds) {
+      final currentState = newStates[movieId];
+      if (currentState != null) {
+        newStates[movieId] = currentState.copyWith(
+          viewCount: currentState.viewCount + 1,
+          lastUpdated: DateTime.now(),
+        );
+      }
+    }
+
+    uiElementStates.value = newStates;
+    UIPerformanceTracker.markStateUpdate();
+    frameCounter.value = frameCounter.value + 1;
+    UIPerformanceTracker.markStateUpdate();
+    lastUpdatedMovieIds.value = movieIds;
+  }
+
+  void updateMovieProgress(List<int> movieIds) {
+    UIPerformanceTracker.markStateUpdate();
+
+    final newStates = Map<int, UIElementState>.from(uiElementStates);
+    for (final movieId in movieIds) {
+      final currentState = newStates[movieId];
+      if (currentState != null) {
+        final newProgress = (currentState.progress + 0.05).clamp(0.0, 1.0);
+        newStates[movieId] = currentState.copyWith(
+          progress: newProgress,
+          lastUpdated: DateTime.now(),
+        );
+      }
+    }
+
+    uiElementStates.value = newStates;
+    UIPerformanceTracker.markStateUpdate();
+    frameCounter.value = frameCounter.value + 1;
+    UIPerformanceTracker.markStateUpdate();
+    lastUpdatedMovieIds.value = movieIds;
+  }
+
+  void updateMovieDownloadStatus(List<int> movieIds) {
+    UIPerformanceTracker.markStateUpdate();
+
+    final newStates = Map<int, UIElementState>.from(uiElementStates);
+    for (final movieId in movieIds) {
+      final currentState = newStates[movieId];
+      if (currentState != null) {
+        newStates[movieId] = currentState.copyWith(
+          isDownloading: !currentState.isDownloading,
+          lastUpdated: DateTime.now(),
+        );
+      }
+    }
+
+    uiElementStates.value = newStates;
+    UIPerformanceTracker.markStateUpdate();
+    frameCounter.value = frameCounter.value + 1;
+    UIPerformanceTracker.markStateUpdate();
+    lastUpdatedMovieIds.value = movieIds;
+  }
+
+  void updateMovieRating(List<int> movieIds) {
+    UIPerformanceTracker.markStateUpdate();
+
+    final newStates = Map<int, UIElementState>.from(uiElementStates);
+    for (final movieId in movieIds) {
+      final currentState = newStates[movieId];
+      if (currentState != null) {
+        final newRating = (currentState.rating + 0.5).clamp(0.0, 10.0);
+        newStates[movieId] = currentState.copyWith(
+          rating: newRating,
+          lastUpdated: DateTime.now(),
+        );
+      }
+    }
+
+    uiElementStates.value = newStates;
+    UIPerformanceTracker.markStateUpdate();
+    frameCounter.value = frameCounter.value + 1;
+    UIPerformanceTracker.markStateUpdate();
+    lastUpdatedMovieIds.value = movieIds;
+  }
+
+  void _completeTest() {
     endTime = DateTime.now();
-    UIPerformanceTracker.markStateUpdate(); // DODANE
+    UIPerformanceTracker.markStateUpdate();
     status.value = BenchmarkStatus.completed;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    isAutoScrolling.value = false;
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    isStreamingActive.value = false;
     _completeTestWithReports();
   }
 
   void _completeTestWithReports() {
     _scenarioTimer?.cancel();
     MemoryMonitor.stopMonitoring();
-    UIPerformanceTracker.stopTracking(); // ZMIANA
+    UIPerformanceTracker.stopTracking();
 
     final memoryReport = MemoryMonitor.generateReport();
-    final upmReport = UIPerformanceTracker.generateReport(); // ZMIANA
+    final upmReport = UIPerformanceTracker.generateReport();
 
     print('=== GetX Memory Report for ${scenarioType.value} ===');
     print(memoryReport.toFormattedString());
-    print('=== GetX UMP Report for ${scenarioType.value} ==='); // ZMIANA
+    print('=== GetX UMP Report for ${scenarioType.value} ===');
     print(upmReport.toFormattedString());
   }
 
-  // Zachowane stare metody z dodanym state update tracking
-  Future<void> loadMoreMovies() async {
-    if (isLoadingMore || loadedCount.value >= dataSize) return;
+  // Helper methods
+  List<Movie> _applyFilter(
+      List<Movie> movies, String filterType, dynamic filterValue) {
+    switch (filterType) {
+      case 'genre':
+        final genreName = _genreNames[filterValue % _genreNames.length];
+        return movies
+            .where((movie) =>
+                movie.genreIds.any((id) => _getGenreForId(id) == genreName))
+            .toList();
+      case 'year':
+        final year = 2000 + (filterValue % 25);
+        return movies
+            .where((movie) => movie.releaseDate.startsWith(year.toString()))
+            .toList();
+      case 'rating':
+        final minRating = 5.0 + (filterValue % 4);
+        return movies.where((movie) => movie.voteAverage >= minRating).toList();
+      default:
+        return movies;
+    }
+  }
 
-    isLoadingMore = true;
-    _currentPage++;
+  void _applySorting(List<Movie> movies, String sortType) {
+    switch (sortType) {
+      case 'rating':
+        movies.sort((a, b) => b.voteAverage.compareTo(a.voteAverage));
+        break;
+      case 'date':
+        movies.sort((a, b) => b.releaseDate.compareTo(a.releaseDate));
+        break;
+      case 'title':
+        movies.sort((a, b) => a.title.compareTo(b.title));
+        break;
+      case 'popularity':
+        movies.sort((a, b) => b.voteAverage.compareTo(a.voteAverage));
+        break;
+    }
+  }
 
-    try {
-      final newMovies = await apiClient.getPopularMovies(page: _currentPage);
-      final moviesToAdd = newMovies.take(dataSize - loadedCount.value).toList();
+  Map<String, List<Movie>> _applyGrouping(
+      List<Movie> movies, String groupType) {
+    final groups = <String, List<Movie>>{};
 
-      final allMovies = [...movies, ...moviesToAdd];
-
-      UIPerformanceTracker.markStateUpdate(); // DODANE
-      movies.value = allMovies;
-      UIPerformanceTracker.markStateUpdate(); // DODANE
-      filteredMovies.value = allMovies;
-      UIPerformanceTracker.markStateUpdate(); // DODANE
-      loadedCount.value = allMovies.length;
-
-      if (allMovies.length >= dataSize) {
-        UIPerformanceTracker.markStateUpdate(); // DODANE
-        isAutoScrolling.value = false;
-        completeTest();
+    for (final movie in movies) {
+      String key;
+      switch (groupType) {
+        case 'decade':
+          final year = int.tryParse(movie.releaseDate.split('-').first) ?? 2000;
+          key = '${(year ~/ 10) * 10}s';
+          break;
+        case 'genre':
+          key = movie.genreIds.isNotEmpty
+              ? _getGenreForId(movie.genreIds.first)
+              : 'Unknown';
+          break;
+        case 'rating_range':
+          final rating = movie.voteAverage;
+          if (rating >= 8.0)
+            key = 'Excellent (8.0+)';
+          else if (rating >= 6.0)
+            key = 'Good (6.0-7.9)';
+          else if (rating >= 4.0)
+            key = 'Average (4.0-5.9)';
+          else
+            key = 'Poor (<4.0)';
+          break;
+        default:
+          key = 'All';
       }
-    } catch (e) {
-      UIPerformanceTracker.markStateUpdate(); // DODANE
-      error.value = e.toString();
-      UIPerformanceTracker.markStateUpdate(); // DODANE
-      status.value = BenchmarkStatus.error;
-      _completeTestWithReports();
-    } finally {
-      isLoadingMore = false;
+
+      groups.putIfAbsent(key, () => []);
+      groups[key]!.add(movie);
     }
+
+    return groups;
   }
 
-  void filterMovies(List<int> genreIds) {
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    filteredMovies.value = movies
-        .where((movie) => movie.genreIds.any((id) => genreIds.contains(id)))
-        .toList();
-  }
+  List<int> _getRandomMovieIds(int totalCount, double percentage) {
+    final count = (totalCount * percentage).round();
+    final movieIds = <int>[];
 
-  void sortMovies({required bool byReleaseDate}) {
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    final sorted = [...filteredMovies];
-    if (byReleaseDate) {
-      sorted.sort((a, b) => b.releaseDate.compareTo(a.releaseDate));
-    } else {
-      sorted.sort((a, b) => b.voteAverage.compareTo(a.voteAverage));
+    for (int i = 0; i < count; i++) {
+      final randomIndex = _random.nextInt(movies.length);
+      movieIds.add(movies[randomIndex].id);
     }
-    filteredMovies.value = sorted;
+
+    return movieIds;
   }
 
-  void toggleViewMode() {
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    viewMode.value =
-        viewMode.value == ViewMode.list ? ViewMode.grid : ViewMode.list;
-  }
-
-  void toggleAccessibilityMode() {
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    isAccessibilityMode.value = !isAccessibilityMode.value;
-    Get.find<ThemeController>().setAccessibilityMode(isAccessibilityMode.value);
-  }
-
-  void toggleMovieExpanded(int movieId) {
-    UIPerformanceTracker.markStateUpdate(); // DODANE
-    if (expandedMovies.contains(movieId)) {
-      expandedMovies.remove(movieId);
-    } else {
-      expandedMovies.add(movieId);
-    }
+  String _getGenreForId(int genreId) {
+    const genreMap = {
+      28: 'Action',
+      35: 'Comedy',
+      18: 'Drama',
+      27: 'Horror',
+      10749: 'Romance',
+      878: 'Sci-Fi',
+    };
+    return genreMap[genreId] ?? 'Unknown';
   }
 }
