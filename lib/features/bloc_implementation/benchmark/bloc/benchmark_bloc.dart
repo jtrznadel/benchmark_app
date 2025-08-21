@@ -59,6 +59,8 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   Future<void> _onStartBenchmark(
       StartBenchmark event, Emitter<BenchmarkState> emit) async {
+    UIPerformanceTracker.markAction(); // DODANE
+
     emit(state.copyWith(
       status: BenchmarkStatus.loading,
       scenarioType: event.scenarioType,
@@ -117,7 +119,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onProcessMoviesByGenre(
       ProcessMoviesByGenre event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     // Step 1: Filter by genre
     final filtered = state.movies
@@ -142,7 +144,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onCalculateAverageRating(
       CalculateAverageRating event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     // Step 2: Calculate average rating
     final filtered = state.processingState.filteredMovies;
@@ -168,7 +170,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onSortMoviesByMetric(
       SortMoviesByMetric event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     // Step 3: Sort by calculated metric
     final filtered = [...state.processingState.filteredMovies];
@@ -194,7 +196,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onGroupMoviesByDecade(
       GroupMoviesByDecade event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     // Step 4: Group by decade
     final sorted = state.processingState.sortedMovies;
@@ -221,7 +223,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onUpdateFinalProcessingState(
       UpdateFinalProcessingState event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final newProcessingState = state.processingState.copyWith(
       processingStep: 5,
@@ -260,7 +262,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onApplyFilterConfiguration(
       ApplyFilterConfiguration event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     // Create new complete state for history
     final currentState = state.processingState;
@@ -288,7 +290,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onApplySortConfiguration(
       ApplySortConfiguration event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final currentState = state.processingState;
     final sorted = [...currentState.filteredMovies];
@@ -314,7 +316,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onApplyGroupConfiguration(
       ApplyGroupConfiguration event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final currentState = state.processingState;
     final grouped = _applyGrouping(currentState.sortedMovies, event.groupType);
@@ -339,7 +341,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onApplyPaginationConfiguration(
       ApplyPaginationConfiguration event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final currentState = state.processingState;
     final newMetrics = Map<String, double>.from(currentState.calculatedMetrics);
@@ -363,7 +365,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
   }
 
   void _onUndoToStep(UndoToStep event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     if (event.stepNumber >= 0 && event.stepNumber < state.stateHistory.length) {
       final restoredState = state.stateHistory[event.stepNumber];
@@ -382,7 +384,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onUndoLastOperation(
       UndoLastOperation event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     if (state.currentHistoryIndex > 0) {
       add(UndoToStep(state.currentHistoryIndex - 1));
@@ -410,11 +412,11 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
       // Update different percentages of movies per frame
       final movieCount = state.movies.length;
-      final likeUpdates = _getRandomMovieIds(movieCount, 0.10); // 10%
-      final viewUpdates = _getRandomMovieIds(movieCount, 0.20); // 20%
-      final progressUpdates = _getRandomMovieIds(movieCount, 0.05); // 5%
-      final downloadUpdates = _getRandomMovieIds(movieCount, 0.03); // 3%
-      final ratingUpdates = _getRandomMovieIds(movieCount, 0.01); // 1%
+      final likeUpdates = _getRandomMovieIds(movieCount, 0.40); // 10%
+      final viewUpdates = _getRandomMovieIds(movieCount, 0.60); // 20%
+      final progressUpdates = _getRandomMovieIds(movieCount, 0.15); // 5%
+      final downloadUpdates = _getRandomMovieIds(movieCount, 0.09); // 3%
+      final ratingUpdates = _getRandomMovieIds(movieCount, 0.15); // 1%
 
       add(UpdateMovieLikeStatus(likeUpdates));
       add(UpdateMovieViewCount(viewUpdates));
@@ -426,7 +428,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onUpdateMovieLikeStatus(
       UpdateMovieLikeStatus event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final newStates = Map<int, UIElementState>.from(state.uiElementStates);
     for (final movieId in event.movieIds) {
@@ -448,7 +450,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onUpdateMovieViewCount(
       UpdateMovieViewCount event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final newStates = Map<int, UIElementState>.from(state.uiElementStates);
     for (final movieId in event.movieIds) {
@@ -470,7 +472,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onUpdateMovieProgress(
       UpdateMovieProgress event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final newStates = Map<int, UIElementState>.from(state.uiElementStates);
     for (final movieId in event.movieIds) {
@@ -493,7 +495,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onUpdateMovieDownloadStatus(
       UpdateMovieDownloadStatus event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final newStates = Map<int, UIElementState>.from(state.uiElementStates);
     for (final movieId in event.movieIds) {
@@ -515,7 +517,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   void _onUpdateMovieRating(
       UpdateMovieRating event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final newStates = Map<int, UIElementState>.from(state.uiElementStates);
     for (final movieId in event.movieIds) {
@@ -551,12 +553,13 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     UIPerformanceTracker.stopTracking();
 
     final memoryReport = MemoryMonitor.generateReport();
-    final upmReport = UIPerformanceTracker.generateReport();
+    final uiReport = UIPerformanceTracker.generateReport(); // ZMIENIONE
 
     print('=== BLoC Memory Report for ${state.scenarioType} ===');
     print(memoryReport.toFormattedString());
-    print('=== BLoC UMP Report for ${state.scenarioType} ===');
-    print(upmReport.toFormattedString());
+    print(
+        '=== BLoC UI Performance Report for ${state.scenarioType} ==='); // ZMIENIONE
+    print(uiReport.toFormattedString()); // ZMIENIONE
   }
 
   // Helper methods

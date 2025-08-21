@@ -61,7 +61,7 @@ class BenchmarkController extends GetxController {
   }
 
   void startBenchmark(ScenarioType scenario, int size) async {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     scenarioType.value = scenario;
     dataSize = size;
     startTime = DateTime.now();
@@ -75,13 +75,13 @@ class BenchmarkController extends GetxController {
       // Load initial data
       final loadedMovies = await apiClient.loadAllMovies(totalItems: size);
 
-      UIPerformanceTracker.markStateUpdate();
+      UIPerformanceTracker.markAction();
       movies.value = loadedMovies;
-      UIPerformanceTracker.markStateUpdate();
+      UIPerformanceTracker.markAction();
       loadedCount.value = loadedMovies.length;
-      UIPerformanceTracker.markStateUpdate();
+      UIPerformanceTracker.markAction();
       genreRotation.value = _genreNames;
-      UIPerformanceTracker.markStateUpdate();
+      UIPerformanceTracker.markAction();
       status.value = BenchmarkStatus.running;
 
       switch (scenario) {
@@ -96,9 +96,9 @@ class BenchmarkController extends GetxController {
           break;
       }
     } catch (e) {
-      UIPerformanceTracker.markStateUpdate();
+      UIPerformanceTracker.markAction();
       status.value = BenchmarkStatus.error;
-      UIPerformanceTracker.markStateUpdate();
+      UIPerformanceTracker.markAction();
       error.value = e.toString();
       _completeTestWithReports();
     }
@@ -120,7 +120,7 @@ class BenchmarkController extends GetxController {
   }
 
   void _processMoviesByGenre(String genre) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     // Step 1: Filter by genre
     final filtered = movies
@@ -135,7 +135,7 @@ class BenchmarkController extends GetxController {
     );
 
     processingState.value = newProcessingState;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     currentProcessingCycle.value = currentProcessingCycle.value + 1;
 
     // Step 2: Calculate average rating
@@ -143,7 +143,7 @@ class BenchmarkController extends GetxController {
   }
 
   void _calculateAverageRating() {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final filtered = processingState.value.filteredMovies;
     final averageRating = filtered.isEmpty
@@ -167,7 +167,7 @@ class BenchmarkController extends GetxController {
   }
 
   void _sortMoviesByMetric() {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final filtered = [...processingState.value.filteredMovies];
     final averageRating =
@@ -191,7 +191,7 @@ class BenchmarkController extends GetxController {
   }
 
   void _groupMoviesByDecade() {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final sorted = processingState.value.sortedMovies;
     final grouped = <String, List<Movie>>{};
@@ -216,7 +216,7 @@ class BenchmarkController extends GetxController {
   }
 
   void _updateFinalProcessingState() {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final newProcessingState = processingState.value.copyWith(
       processingStep: 5,
@@ -254,7 +254,7 @@ class BenchmarkController extends GetxController {
   }
 
   void applyFilterConfiguration(String filterType, dynamic filterValue) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final currentState = processingState.value;
     final newState = ProcessingState(
@@ -271,16 +271,16 @@ class BenchmarkController extends GetxController {
     final newLog = [...operationLog, 'Filter: $filterType'];
 
     processingState.value = newState;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     stateHistory.value = newHistory;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     currentHistoryIndex.value = newHistory.length - 1;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     operationLog.value = newLog;
   }
 
   void _applySortConfiguration(String sortType) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final currentState = processingState.value;
     final sorted = [...currentState.filteredMovies];
@@ -297,16 +297,16 @@ class BenchmarkController extends GetxController {
     final newLog = [...operationLog, 'Sort: $sortType'];
 
     processingState.value = newState;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     stateHistory.value = newHistory;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     currentHistoryIndex.value = newHistory.length - 1;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     operationLog.value = newLog;
   }
 
   void _applyGroupConfiguration(String groupType) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final currentState = processingState.value;
     final grouped = _applyGrouping(currentState.sortedMovies, groupType);
@@ -322,16 +322,16 @@ class BenchmarkController extends GetxController {
     final newLog = [...operationLog, 'Group: $groupType'];
 
     processingState.value = newState;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     stateHistory.value = newHistory;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     currentHistoryIndex.value = newHistory.length - 1;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     operationLog.value = newLog;
   }
 
   void _applyPaginationConfiguration(int page) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final currentState = processingState.value;
     final newMetrics = Map<String, double>.from(currentState.calculatedMetrics);
@@ -347,25 +347,25 @@ class BenchmarkController extends GetxController {
     final newLog = [...operationLog, 'Paginate: $page'];
 
     processingState.value = newState;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     stateHistory.value = newHistory;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     currentHistoryIndex.value = newHistory.length - 1;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     operationLog.value = newLog;
   }
 
   void undoToStep(int stepNumber) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     if (stepNumber >= 0 && stepNumber < stateHistory.length) {
       final restoredState = stateHistory[stepNumber];
       final newLog = [...operationLog, 'Undo to step: $stepNumber'];
 
       processingState.value = restoredState;
-      UIPerformanceTracker.markStateUpdate();
+      UIPerformanceTracker.markAction();
       currentHistoryIndex.value = stepNumber;
-      UIPerformanceTracker.markStateUpdate();
+      UIPerformanceTracker.markAction();
       operationLog.value = newLog;
     }
   }
@@ -378,7 +378,7 @@ class BenchmarkController extends GetxController {
       initialStates[movie.id] = UIElementState(movieId: movie.id);
     }
 
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     uiElementStates.value = initialStates;
 
     _scenarioTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
@@ -392,11 +392,11 @@ class BenchmarkController extends GetxController {
 
       // Update different percentages of movies per frame
       final movieCount = movies.length;
-      final likeUpdates = _getRandomMovieIds(movieCount, 0.10); // 10%
-      final viewUpdates = _getRandomMovieIds(movieCount, 0.20); // 20%
-      final progressUpdates = _getRandomMovieIds(movieCount, 0.05); // 5%
-      final downloadUpdates = _getRandomMovieIds(movieCount, 0.03); // 3%
-      final ratingUpdates = _getRandomMovieIds(movieCount, 0.01); // 1%
+      final likeUpdates = _getRandomMovieIds(movieCount, 0.40); // 10%
+      final viewUpdates = _getRandomMovieIds(movieCount, 0.60); // 20%
+      final progressUpdates = _getRandomMovieIds(movieCount, 0.15); // 5%
+      final downloadUpdates = _getRandomMovieIds(movieCount, 0.09); // 3%
+      final ratingUpdates = _getRandomMovieIds(movieCount, 0.15); // 1%
 
       updateMovieLikeStatus(likeUpdates);
       updateMovieViewCount(viewUpdates);
@@ -407,7 +407,7 @@ class BenchmarkController extends GetxController {
   }
 
   void updateMovieLikeStatus(List<int> movieIds) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final newStates = Map<int, UIElementState>.from(uiElementStates);
     for (final movieId in movieIds) {
@@ -421,14 +421,14 @@ class BenchmarkController extends GetxController {
     }
 
     uiElementStates.value = newStates;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     frameCounter.value = frameCounter.value + 1;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     lastUpdatedMovieIds.value = movieIds;
   }
 
   void updateMovieViewCount(List<int> movieIds) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final newStates = Map<int, UIElementState>.from(uiElementStates);
     for (final movieId in movieIds) {
@@ -442,14 +442,14 @@ class BenchmarkController extends GetxController {
     }
 
     uiElementStates.value = newStates;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     frameCounter.value = frameCounter.value + 1;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     lastUpdatedMovieIds.value = movieIds;
   }
 
   void updateMovieProgress(List<int> movieIds) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final newStates = Map<int, UIElementState>.from(uiElementStates);
     for (final movieId in movieIds) {
@@ -464,14 +464,14 @@ class BenchmarkController extends GetxController {
     }
 
     uiElementStates.value = newStates;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     frameCounter.value = frameCounter.value + 1;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     lastUpdatedMovieIds.value = movieIds;
   }
 
   void updateMovieDownloadStatus(List<int> movieIds) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final newStates = Map<int, UIElementState>.from(uiElementStates);
     for (final movieId in movieIds) {
@@ -485,14 +485,14 @@ class BenchmarkController extends GetxController {
     }
 
     uiElementStates.value = newStates;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     frameCounter.value = frameCounter.value + 1;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     lastUpdatedMovieIds.value = movieIds;
   }
 
   void updateMovieRating(List<int> movieIds) {
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
 
     final newStates = Map<int, UIElementState>.from(uiElementStates);
     for (final movieId in movieIds) {
@@ -507,15 +507,15 @@ class BenchmarkController extends GetxController {
     }
 
     uiElementStates.value = newStates;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     frameCounter.value = frameCounter.value + 1;
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     lastUpdatedMovieIds.value = movieIds;
   }
 
   void _completeTest() {
     endTime = DateTime.now();
-    UIPerformanceTracker.markStateUpdate();
+    UIPerformanceTracker.markAction();
     status.value = BenchmarkStatus.completed;
     _completeTestWithReports();
   }
@@ -526,12 +526,13 @@ class BenchmarkController extends GetxController {
     UIPerformanceTracker.stopTracking();
 
     final memoryReport = MemoryMonitor.generateReport();
-    final upmReport = UIPerformanceTracker.generateReport();
+    final uiReport = UIPerformanceTracker.generateReport(); // ZMIENIONE
 
     print('=== GetX Memory Report for ${scenarioType.value} ===');
     print(memoryReport.toFormattedString());
-    print('=== GetX UMP Report for ${scenarioType.value} ===');
-    print(upmReport.toFormattedString());
+    print(
+        '=== GetX UI Performance Report for ${scenarioType.value} ==='); // ZMIENIONE
+    print(uiReport.toFormattedString()); // ZMIENIONE
   }
 
   // Helper methods
