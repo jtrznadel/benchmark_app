@@ -6,7 +6,7 @@ import '../../bloc/benchmark_state.dart';
 import 'package:moviedb_benchmark/core/utils/enums.dart';
 
 class BlocBenchmarkControls extends StatelessWidget {
-  final ScenarioType scenarioType; // ZMIANA: String -> ScenarioType
+  final ScenarioType scenarioType;
   final BenchmarkState state;
 
   const BlocBenchmarkControls({
@@ -26,16 +26,19 @@ class BlocBenchmarkControls extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               Text('Status: ${_getStatusText(state.status)}'),
-              Text(
-                  '${_getScenarioDisplay()}: ${state.loadedCount}/${state.dataSize}'),
+              Text('Movies: ${state.loadedCount}/${state.dataSize}'),
+              if (state.startTime != null &&
+                  state.status == BenchmarkStatus.running)
+                Text(
+                    'Time: ${DateTime.now().difference(state.startTime!).inSeconds}s'),
             ],
           ),
           const SizedBox(height: 8),
-          // Progress info specific to scenario
           _buildScenarioSpecificInfo(),
-          // Interactive controls for certain scenarios
-          if (_shouldShowInteractiveControls())
+          if (_shouldShowInteractiveControls()) ...[
+            const SizedBox(height: 8),
             _buildInteractiveControls(context),
+          ],
         ],
       ),
     );
@@ -43,92 +46,102 @@ class BlocBenchmarkControls extends StatelessWidget {
 
   Widget _buildScenarioSpecificInfo() {
     switch (scenarioType) {
-      case ScenarioType.apiStreaming:
-        return Text(
-            '${state.statusText} (${state.progressCounter} pages loaded)');
-      case ScenarioType.realtimeFiltering:
-        return Text(
-            '${state.statusText} - Filter cycle: ${state.currentFilterIndex}');
-      case ScenarioType.memoryPressure:
-        return Text('${state.statusText} - Memory cycles active');
-      case ScenarioType.cascadingUpdates:
-        return Text('${state.statusText} - Updates: ${state.progressCounter}');
-      case ScenarioType.highFrequency:
+      case ScenarioType.cpuProcessingPipeline:
         return Column(
           children: [
-            Text(state.statusText),
-            if (state.multiCounters.isNotEmpty)
-              Text('Counters: ${state.multiCounters.take(5).join(", ")}...'),
+            Text('Processing Cycle: ${state.currentProcessingCycle}'),
+            Text('Current Step: ${state.processingState.processingStep}/5'),
+            if (state.processingState.currentGenre.isNotEmpty)
+              Text('Genre: ${state.processingState.currentGenre}'),
+            if (state.processingState.calculatedMetrics.isNotEmpty)
+              Text(
+                  'Avg Rating: ${state.processingState.calculatedMetrics['averageRating']?.toStringAsFixed(2) ?? 'N/A'}'),
+          ],
+        );
+      case ScenarioType.memoryStateHistory:
+        return Column(
+          children: [
+            Text(
+                'History Index: ${state.currentHistoryIndex}/${state.stateHistory.length}'),
+            Text('Operations: ${state.operationLog.length}'),
+            if (state.operationLog.isNotEmpty)
+              Text('Last: ${state.operationLog.last}'),
+          ],
+        );
+      case ScenarioType.uiGranularUpdates:
+        return Column(
+          children: [
+            Text('Frame: ${state.frameCounter}/1800'),
+            Text('UI Elements: ${state.uiElementStates.length}'),
+            if (state.lastUpdatedMovieIds.isNotEmpty)
+              Text('Last Updated: ${state.lastUpdatedMovieIds.length} items'),
           ],
         );
     }
   }
 
   bool _shouldShowInteractiveControls() {
-    // Show manual controls for certain scenarios when running
     return state.status == BenchmarkStatus.running &&
-        (scenarioType == ScenarioType.realtimeFiltering ||
-            scenarioType == ScenarioType.cascadingUpdates);
+        (scenarioType == ScenarioType.memoryStateHistory ||
+            scenarioType == ScenarioType.uiGranularUpdates);
   }
 
   Widget _buildInteractiveControls(BuildContext context) {
-    if (scenarioType == ScenarioType.realtimeFiltering) {
+    if (scenarioType == ScenarioType.memoryStateHistory) {
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           ElevatedButton(
-            onPressed: () {
-              context.read<BenchmarkBloc>().add(
-                    const FilterMovies(genreIds: [28]), // Action
-                  );
-            },
+            onPressed: state.currentHistoryIndex > 0
+                ? () {
+                    context.read<BenchmarkBloc>().add(UndoLastOperation());
+                  }
+                : null,
             style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-            child: const Text('Manual Filter: Action'),
+            child: const Text('Manual Undo'),
           ),
           const SizedBox(width: 8),
           ElevatedButton(
             onPressed: () {
-              context.read<BenchmarkBloc>().add(
-                    const SortMovies(byReleaseDate: true),
-                  );
+              context
+                  .read<BenchmarkBloc>()
+                  .add(const ApplyFilterConfiguration('genre', 28));
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-            child: const Text('Manual Sort: Date'),
+            child: const Text('Manual Filter'),
           ),
         ],
       );
     }
 
-    if (scenarioType == ScenarioType.cascadingUpdates) {
-      return ElevatedButton(
-        onPressed: () {
-          context.read<BenchmarkBloc>().add(ToggleAccessibilityMode());
-        },
-        style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-        child: Text(
-          state.isAccessibilityMode
-              ? 'Disable Accessibility'
-              : 'Enable Accessibility',
-        ),
+    if (scenarioType == ScenarioType.uiGranularUpdates) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ElevatedButton(
+            onPressed: () {
+              final movieIds = state.movies.take(10).map((m) => m.id).toList();
+              context
+                  .read<BenchmarkBloc>()
+                  .add(UpdateMovieLikeStatus(movieIds));
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            child: const Text('Manual Like Update'),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: () {
+              final movieIds = state.movies.take(5).map((m) => m.id).toList();
+              context.read<BenchmarkBloc>().add(UpdateMovieProgress(movieIds));
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+            child: const Text('Manual Progress Update'),
+          ),
+        ],
       );
     }
 
     return const SizedBox.shrink();
-  }
-
-  String _getScenarioDisplay() {
-    switch (scenarioType) {
-      case ScenarioType.apiStreaming:
-        return 'Streaming';
-      case ScenarioType.realtimeFiltering:
-        return 'Filtering';
-      case ScenarioType.memoryPressure:
-        return 'Memory Load';
-      case ScenarioType.cascadingUpdates:
-        return 'Cascading';
-      case ScenarioType.highFrequency:
-        return 'High-Freq';
-    }
   }
 
   String _getStatusText(BenchmarkStatus status) {

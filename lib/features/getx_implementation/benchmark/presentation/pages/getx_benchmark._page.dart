@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:moviedb_benchmark/core/models/movie.dart';
+import 'package:moviedb_benchmark/core/models/processing_state.dart';
 import 'package:moviedb_benchmark/core/utils/enums.dart';
 import 'package:moviedb_benchmark/core/utils/uip_tracker.dart';
-import 'dart:async';
-import 'package:moviedb_benchmark/features/getx_implementation/benchmark/presentation/controllers/benchmark_controller.dart';
-import 'package:moviedb_benchmark/features/bloc_implementation/benchmark/bloc/benchmark_state.dart';
+import 'package:moviedb_benchmark/core/widgets/enhanced_movie_card.dart';
+import 'package:moviedb_benchmark/core/models/ui_element_state.dart';
+import 'package:moviedb_benchmark/core/widgets/processing_info_display.dart';
+import '../controllers/benchmark_controller.dart';
 import '../widgets/getx_benchmark_controls.dart';
-import '../../../../../core/widgets/movie_list_item.dart';
-import '../../../../../core/widgets/movie_grid_item.dart';
 
 class GetXBenchmarkPage extends StatefulWidget {
   final ScenarioType scenarioType;
@@ -24,14 +25,12 @@ class GetXBenchmarkPage extends StatefulWidget {
 }
 
 class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
-  late ScrollController _scrollController;
   final controller = Get.put(BenchmarkController());
 
   @override
   void initState() {
     super.initState();
-    _scrollController = ScrollController();
-    UIPerformanceTracker.startTracking(); // ZMIANA
+    UIPerformanceTracker.startTracking();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       controller.startBenchmark(widget.scenarioType, widget.dataSize);
@@ -40,8 +39,7 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
-    UIPerformanceTracker.stopTracking(); // ZMIANA
+    UIPerformanceTracker.stopTracking();
     super.dispose();
   }
 
@@ -49,24 +47,8 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('GetX Benchmark: ${_getScenarioName(widget.scenarioType)}'),
+        title: Text('GetX: ${_getScenarioName(widget.scenarioType)}'),
         backgroundColor: Colors.purple,
-        actions: [
-          Obx(() {
-            if (controller.status.value == BenchmarkStatus.running ||
-                controller.status.value == BenchmarkStatus.loaded) {
-              return IconButton(
-                icon: Icon(
-                  controller.viewMode.value == ViewMode.list
-                      ? Icons.grid_view
-                      : Icons.list,
-                ),
-                onPressed: controller.toggleViewMode,
-              );
-            }
-            return const SizedBox.shrink();
-          }),
-        ],
       ),
       body: Obx(() {
         if (controller.status.value == BenchmarkStatus.loading) {
@@ -98,7 +80,7 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
               controller: controller,
             ),
             Expanded(
-              child: _buildMovieView(),
+              child: _buildScenarioContent(),
             ),
           ],
         );
@@ -106,152 +88,147 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
     );
   }
 
-  Widget _buildMovieView() {
+  Widget _buildScenarioContent() {
     return Obx(() {
-      // For scenarios that use enriched movies, show those
-      if (controller.enrichedMovies.isNotEmpty) {
-        return _buildEnrichedMovieView();
-      }
-
-      // For high frequency scenario, show counters
-      if (widget.scenarioType == ScenarioType.highFrequency) {
-        return _buildHighFrequencyView();
-      }
-
-      // Default movie view
-      if (controller.filteredMovies.isEmpty) {
-        return const Center(child: Text('No movies to display'));
-      }
-
-      if (controller.viewMode.value == ViewMode.grid) {
-        return GridView.builder(
-          controller: _scrollController,
-          padding: const EdgeInsets.all(8),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.7,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-          ),
-          itemCount: controller.filteredMovies.length,
-          itemBuilder: (context, index) {
-            final movie = controller.filteredMovies[index];
-            return Obx(() => MovieGridItem(
-                  movie: movie,
-                  isExpanded: controller.expandedMovies.contains(movie.id),
-                  isAccessibilityMode: controller.isAccessibilityMode.value,
-                  onTap: () => controller.toggleMovieExpanded(movie.id),
-                ));
-          },
-        );
-      } else {
-        return ListView.builder(
-          controller: _scrollController,
-          padding: const EdgeInsets.all(8),
-          itemCount: controller.filteredMovies.length,
-          itemBuilder: (context, index) {
-            final movie = controller.filteredMovies[index];
-            return MovieListItem(
-              movie: movie,
-              isExpanded: controller.expandedMovies.contains(movie.id),
-              isAccessibilityMode: controller.isAccessibilityMode.value,
-              onTap: () {
-                controller.toggleMovieExpanded(movie.id);
-              },
-            );
-          },
-        );
+      switch (widget.scenarioType) {
+        case ScenarioType.cpuProcessingPipeline:
+          return _buildCpuScenarioContent();
+        case ScenarioType.memoryStateHistory:
+          return _buildMemoryScenarioContent();
+        case ScenarioType.uiGranularUpdates:
+          return _buildUiScenarioContent();
       }
     });
   }
 
-  Widget _buildEnrichedMovieView() {
-    UIPerformanceTracker.markWidgetRebuild(); // ZMIANA - usunięto parametr
-    return Obx(() => ListView.builder(
-          padding: const EdgeInsets.all(8),
-          itemCount: controller.enrichedMovies.length,
-          itemBuilder: (context, index) {
-            final enrichedMovie = controller.enrichedMovies[index];
-            return Card(
-              child: ListTile(
-                title: Text(enrichedMovie.baseMovie.title),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Cast: ${enrichedMovie.cast.take(3).join(", ")}...'),
-                    Text('Reviews: ${enrichedMovie.reviews.length}'),
-                    Text(
-                        'Progress: ${(enrichedMovie.watchProgress * 100).toStringAsFixed(1)}%'),
-                  ],
-                ),
-                trailing: Column(
-                  children: [
-                    Icon(enrichedMovie.isFavorite
-                        ? Icons.favorite
-                        : Icons.favorite_border),
-                    Icon(enrichedMovie.isInWatchlist
-                        ? Icons.bookmark
-                        : Icons.bookmark_border),
-                  ],
-                ),
-              ),
-            );
-          },
-        ));
+  Widget _buildCpuScenarioContent() {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          ProcessingInfoDisplay(
+            processingState: controller.processingState.value,
+            cycleCount: controller.currentProcessingCycle.value,
+            scenarioName: 'CPU Processing Pipeline',
+          ),
+          if (controller.processingState.value.groupedMovies.isNotEmpty)
+            _buildGroupedMoviesList(
+                controller.processingState.value.groupedMovies),
+        ],
+      ),
+    );
   }
 
-  Widget _buildHighFrequencyView() {
-    UIPerformanceTracker.markWidgetRebuild(); // ZMIANA - usunięto parametr
-    return Obx(() => Padding(
+  Widget _buildMemoryScenarioContent() {
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          ProcessingInfoDisplay(
+            processingState: controller.processingState.value,
+            cycleCount: controller.currentHistoryIndex.value,
+            scenarioName: 'Memory State History',
+          ),
+          _buildOperationLog(controller.operationLog),
+          if (controller.stateHistory.isNotEmpty)
+            _buildStateHistoryList(controller.stateHistory),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUiScenarioContent() {
+    if (controller.movies.isEmpty) {
+      return const Center(child: Text('No movies loaded'));
+    }
+
+    return Column(
+      children: [
+        Container(
           padding: const EdgeInsets.all(16),
-          child: Column(
+          color: Colors.purple.withOpacity(0.1),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              Text('Frame: ${controller.progressCounter.value}',
-                  style: const TextStyle(fontSize: 24)),
-              const SizedBox(height: 20),
-              Expanded(
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    childAspectRatio: 1.5,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                  ),
-                  itemCount: controller.multiCounters.length,
-                  itemBuilder: (context, index) {
-                    return Card(
-                      color: controller.loadingStates.length > index &&
-                              controller.loadingStates[index]
-                          ? Colors.purple.withOpacity(0.3)
-                          : null,
-                      child: Center(
-                        child: Text(
-                          '${controller.multiCounters[index]}',
-                          style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
+              Text('Frame: ${controller.frameCounter.value}'),
+              Text('Movies: ${controller.movies.length}'),
+              Text('Updates: ${controller.lastUpdatedMovieIds.length}'),
             ],
           ),
-        ));
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: controller.movies.length,
+            itemBuilder: (context, index) {
+              final movie = controller.movies[index];
+              return Obx(() {
+                final uiState = controller.uiElementStates[movie.id] ??
+                    UIElementState(movieId: movie.id);
+
+                return EnhancedMovieCard(
+                  movie: movie,
+                  uiState: uiState,
+                  onLikeTap: () {
+                    controller.updateMovieLikeStatus([movie.id]);
+                  },
+                  onDownloadTap: () {
+                    controller.updateMovieDownloadStatus([movie.id]);
+                  },
+                );
+              });
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGroupedMoviesList(Map<String, List<Movie>> groupedMovies) {
+    return ExpansionTile(
+      title: Text('Grouped Movies (${groupedMovies.keys.length} groups)'),
+      children: groupedMovies.entries.map((entry) {
+        return ListTile(
+          title: Text(entry.key),
+          subtitle: Text('${entry.value.length} movies'),
+          trailing: Text(entry.value.take(3).map((m) => m.title).join(', ')),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildOperationLog(List<String> operationLog) {
+    return ExpansionTile(
+      title: Text('Operation Log (${operationLog.length} operations)'),
+      children: operationLog.reversed.take(10).map((operation) {
+        return ListTile(
+          dense: true,
+          title: Text(operation),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildStateHistoryList(List<ProcessingState> stateHistory) {
+    return ExpansionTile(
+      title: Text('State History (${stateHistory.length} states)'),
+      children: stateHistory.reversed.take(5).map((state) {
+        return ListTile(
+          dense: true,
+          title: Text('Step ${state.processingStep}'),
+          subtitle: Text('${state.filteredMovies.length} filtered movies'),
+          trailing:
+              Text(state.timestamp.toString().split(' ')[1].substring(0, 8)),
+        );
+      }).toList(),
+    );
   }
 
   String _getScenarioName(ScenarioType type) {
     switch (type) {
-      case ScenarioType.apiStreaming:
-        return 'S01 - API Streaming';
-      case ScenarioType.realtimeFiltering:
-        return 'S02 - Real-time Filtering';
-      case ScenarioType.memoryPressure:
-        return 'S03 - Memory Pressure';
-      case ScenarioType.cascadingUpdates:
-        return 'S04 - Cascading Updates';
-      case ScenarioType.highFrequency:
-        return 'S05 - High Frequency';
+      case ScenarioType.cpuProcessingPipeline:
+        return 'S01 - CPU Processing';
+      case ScenarioType.memoryStateHistory:
+        return 'S02 - Memory History';
+      case ScenarioType.uiGranularUpdates:
+        return 'S03 - UI Updates';
     }
   }
 }

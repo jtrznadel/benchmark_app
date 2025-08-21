@@ -1,98 +1,92 @@
 import 'package:equatable/equatable.dart';
-import 'package:moviedb_benchmark/core/models/enriched_movie.dart';
 import '../../../../core/models/movie.dart';
+import '../../../../core/models/processing_state.dart';
+import '../../../../core/models/ui_element_state.dart';
 import 'package:moviedb_benchmark/core/utils/enums.dart';
 
 class BenchmarkState extends Equatable {
   final BenchmarkStatus status;
-  final ScenarioType scenarioType; // ZMIANA: String -> ScenarioType
+  final ScenarioType scenarioType;
   final int dataSize;
   final List<Movie> movies;
-  final List<Movie> filteredMovies;
-  final List<EnrichedMovie> enrichedMovies; // NOWE
-  final ViewMode viewMode;
-  final bool isAccessibilityMode;
-  final Set<int> expandedMovies;
   final String? error;
   final DateTime? startTime;
   final DateTime? endTime;
   final int loadedCount;
-  final bool isAutoScrolling;
 
-  // NOWE - dla nowych scenariuszy
-  final int progressCounter;
-  final String statusText;
-  final List<int> multiCounters;
-  final List<bool> loadingStates;
-  final int currentFilterIndex;
-  final bool isStreamingActive;
+  // S01 - CPU Processing specific
+  final ProcessingState processingState;
+  final int currentProcessingCycle;
+  final List<String> genreRotation;
 
-  const BenchmarkState({
+  // S02 - Memory State History specific
+  final List<ProcessingState> stateHistory;
+  final int currentHistoryIndex;
+  final List<String> operationLog;
+
+  // S03 - UI Updates specific
+  final Map<int, UIElementState> uiElementStates;
+  final int frameCounter;
+  final List<int> lastUpdatedMovieIds;
+
+  BenchmarkState({
     this.status = BenchmarkStatus.initial,
-    this.scenarioType = ScenarioType.apiStreaming, // ZMIANA
+    this.scenarioType = ScenarioType.cpuProcessingPipeline,
     this.dataSize = 0,
     this.movies = const [],
-    this.filteredMovies = const [],
-    this.enrichedMovies = const [], // NOWE
-    this.viewMode = ViewMode.list,
-    this.isAccessibilityMode = false,
-    this.expandedMovies = const {},
     this.error,
     this.startTime,
     this.endTime,
     this.loadedCount = 0,
-    this.isAutoScrolling = false,
-    this.progressCounter = 0, // NOWE
-    this.statusText = '', // NOWE
-    this.multiCounters = const [], // NOWE
-    this.loadingStates = const [], // NOWE
-    this.currentFilterIndex = 0, // NOWE
-    this.isStreamingActive = false, // NOWE
-  });
+    ProcessingState? processingState,
+    this.currentProcessingCycle = 0,
+    this.genreRotation = const [],
+    this.stateHistory = const [],
+    this.currentHistoryIndex = 0,
+    this.operationLog = const [],
+    this.uiElementStates = const {},
+    this.frameCounter = 0,
+    this.lastUpdatedMovieIds = const [],
+  }) : processingState = processingState ?? ProcessingState();
 
   BenchmarkState copyWith({
     BenchmarkStatus? status,
-    ScenarioType? scenarioType, // ZMIANA
+    ScenarioType? scenarioType,
     int? dataSize,
     List<Movie>? movies,
-    List<Movie>? filteredMovies,
-    List<EnrichedMovie>? enrichedMovies, // NOWE
-    ViewMode? viewMode,
-    bool? isAccessibilityMode,
-    Set<int>? expandedMovies,
     String? error,
     DateTime? startTime,
     DateTime? endTime,
     int? loadedCount,
-    bool? isAutoScrolling,
-    int? progressCounter, // NOWE
-    String? statusText, // NOWE
-    List<int>? multiCounters, // NOWE
-    List<bool>? loadingStates, // NOWE
-    int? currentFilterIndex, // NOWE
-    bool? isStreamingActive, // NOWE
+    ProcessingState? processingState,
+    int? currentProcessingCycle,
+    List<String>? genreRotation,
+    List<ProcessingState>? stateHistory,
+    int? currentHistoryIndex,
+    List<String>? operationLog,
+    Map<int, UIElementState>? uiElementStates,
+    int? frameCounter,
+    List<int>? lastUpdatedMovieIds,
   }) {
     return BenchmarkState(
       status: status ?? this.status,
       scenarioType: scenarioType ?? this.scenarioType,
       dataSize: dataSize ?? this.dataSize,
       movies: movies ?? this.movies,
-      filteredMovies: filteredMovies ?? this.filteredMovies,
-      enrichedMovies: enrichedMovies ?? this.enrichedMovies,
-      viewMode: viewMode ?? this.viewMode,
-      isAccessibilityMode: isAccessibilityMode ?? this.isAccessibilityMode,
-      expandedMovies: expandedMovies ?? this.expandedMovies,
       error: error ?? this.error,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
       loadedCount: loadedCount ?? this.loadedCount,
-      isAutoScrolling: isAutoScrolling ?? this.isAutoScrolling,
-      progressCounter: progressCounter ?? this.progressCounter,
-      statusText: statusText ?? this.statusText,
-      multiCounters: multiCounters ?? this.multiCounters,
-      loadingStates: loadingStates ?? this.loadingStates,
-      currentFilterIndex: currentFilterIndex ?? this.currentFilterIndex,
-      isStreamingActive: isStreamingActive ?? this.isStreamingActive,
+      processingState: processingState ?? this.processingState,
+      currentProcessingCycle:
+          currentProcessingCycle ?? this.currentProcessingCycle,
+      genreRotation: genreRotation ?? this.genreRotation,
+      stateHistory: stateHistory ?? this.stateHistory,
+      currentHistoryIndex: currentHistoryIndex ?? this.currentHistoryIndex,
+      operationLog: operationLog ?? this.operationLog,
+      uiElementStates: uiElementStates ?? this.uiElementStates,
+      frameCounter: frameCounter ?? this.frameCounter,
+      lastUpdatedMovieIds: lastUpdatedMovieIds ?? this.lastUpdatedMovieIds,
     );
   }
 
@@ -102,21 +96,18 @@ class BenchmarkState extends Equatable {
         scenarioType,
         dataSize,
         movies,
-        filteredMovies,
-        enrichedMovies,
-        viewMode,
-        isAccessibilityMode,
-        expandedMovies,
         error,
         startTime,
         endTime,
         loadedCount,
-        isAutoScrolling,
-        progressCounter,
-        statusText,
-        multiCounters,
-        loadingStates,
-        currentFilterIndex,
-        isStreamingActive,
+        processingState,
+        currentProcessingCycle,
+        genreRotation,
+        stateHistory,
+        currentHistoryIndex,
+        operationLog,
+        uiElementStates,
+        frameCounter,
+        lastUpdatedMovieIds,
       ];
 }

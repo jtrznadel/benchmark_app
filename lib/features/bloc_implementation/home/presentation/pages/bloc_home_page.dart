@@ -28,20 +28,21 @@ class BlocHomePage extends StatelessWidget {
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 20),
-                BlocScenarioSelector(
-                  selectedScenario: state.selectedScenario,
-                  dataSize: state.dataSize,
-                  onScenarioSelected: (scenario, size) {
-                    context.read<HomeBloc>().add(
-                          SelectScenario(
-                            scenarioId:
-                                scenario, // ZMIANA: scenarioType -> scenarioId
-                            dataSize: size,
-                          ),
-                        );
-                  },
+                Expanded(
+                  child: BlocScenarioSelector(
+                    selectedScenario: state.selectedScenario,
+                    dataSize: state.dataSize,
+                    onScenarioSelected: (scenario, size) {
+                      context.read<HomeBloc>().add(
+                            SelectScenario(
+                              scenarioType: scenario,
+                              dataSize: size,
+                            ),
+                          );
+                    },
+                  ),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: state.selectedScenario != null
                       ? () {
@@ -49,8 +50,7 @@ class BlocHomePage extends StatelessWidget {
                             context,
                             MaterialPageRoute(
                               builder: (context) => BlocBenchmarkPage(
-                                scenarioType: state
-                                    .selectedScenario!, // ZMIANA: scenarioId -> scenarioType
+                                scenarioType: state.selectedScenario!,
                                 dataSize: state.dataSize,
                               ),
                             ),
@@ -60,6 +60,7 @@ class BlocHomePage extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.all(16),
                     backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
                   ),
                   child: const Text(
                     'Start testu',
