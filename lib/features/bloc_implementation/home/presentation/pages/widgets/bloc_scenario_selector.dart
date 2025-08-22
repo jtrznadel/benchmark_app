@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:moviedb_benchmark/core/utils/enums.dart';
+import 'package:moviedb_benchmark/core/utils/ui_stress_config.dart';
 
 class BlocScenarioSelector extends StatelessWidget {
   final ScenarioType? selectedScenario;
   final int dataSize;
-  final Function(ScenarioType, int) onScenarioSelected;
+  final TestStressLevel? selectedStressLevel;
+  final Function(ScenarioType, int, {TestStressLevel? stressLevel})
+      onScenarioSelected; // ZMIENIONE
 
   const BlocScenarioSelector({
     super.key,
     required this.selectedScenario,
     required this.dataSize,
+    required this.selectedStressLevel,
     required this.onScenarioSelected,
   });
 
@@ -30,20 +34,36 @@ class BlocScenarioSelector extends StatelessWidget {
         _buildScenarioTile(
           ScenarioType.uiGranularUpdates,
           'UI Granular Updates',
-          'Częste aktualizacje elementów interfejsu:\n• 60 FPS aktualizacje\n• 10% filmów - like status\n• 20% filmów - licznik wyświetleń\n• 5% filmów - postęp oglądania\n• 1800 klatek przez 30 sekund',
+          'Częste aktualizacje elementów interfejsu:\n• Różne poziomy obciążenia UI\n• Aktualizacje like status, progress, ratings\n• Ciężkie operacje sortowania i filtrowania\n• 30 sekund testu',
         ),
         const SizedBox(height: 20),
-        const Text('Wielkość zbioru danych:'),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _buildSizeChip(1000),
-            const SizedBox(width: 10),
-            _buildSizeChip(2500),
-            const SizedBox(width: 10),
-            _buildSizeChip(5000),
-          ],
-        ),
+        if (selectedScenario == ScenarioType.uiGranularUpdates) ...[
+          const Text('Poziom obciążenia UI:'),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildStressChip(TestStressLevel.light),
+              const SizedBox(width: 10),
+              _buildStressChip(TestStressLevel.medium),
+              const SizedBox(width: 10),
+              _buildStressChip(TestStressLevel.heavy),
+            ],
+          ),
+        ] else ...[
+          const Text('Wielkość zbioru danych:'),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildSizeChip(1000),
+              const SizedBox(width: 10),
+              _buildSizeChip(2500),
+              const SizedBox(width: 10),
+              _buildSizeChip(5000),
+            ],
+          ),
+        ],
       ],
     );
   }
@@ -81,7 +101,14 @@ class BlocScenarioSelector extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton(
-                  onPressed: () => onScenarioSelected(type, dataSize),
+                  onPressed: () {
+                    if (type == ScenarioType.uiGranularUpdates) {
+                      onScenarioSelected(type, 1000,
+                          stressLevel: selectedStressLevel);
+                    } else {
+                      onScenarioSelected(type, dataSize);
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
@@ -105,6 +132,20 @@ class BlocScenarioSelector extends StatelessWidget {
       onSelected: (selected) {
         if (selected && selectedScenario != null) {
           onScenarioSelected(selectedScenario!, size);
+        }
+      },
+    );
+  }
+
+  Widget _buildStressChip(TestStressLevel level) {
+    final isSelected = selectedStressLevel == level;
+    return ChoiceChip(
+      label: Text(UIStressConfig.getLevelLabel(level)),
+      selected: isSelected,
+      selectedColor: Colors.blue.withOpacity(0.3),
+      onSelected: (selected) {
+        if (selected && selectedScenario != null) {
+          onScenarioSelected(selectedScenario!, 1000, stressLevel: level);
         }
       },
     );

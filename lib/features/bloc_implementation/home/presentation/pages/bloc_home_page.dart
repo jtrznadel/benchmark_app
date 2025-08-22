@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:moviedb_benchmark/core/utils/enums.dart';
 import 'package:moviedb_benchmark/features/bloc_implementation/home/presentation/pages/widgets/bloc_scenario_selector.dart';
 import '../../bloc/home_bloc.dart';
 import '../../bloc/home_event.dart';
@@ -32,11 +33,15 @@ class BlocHomePage extends StatelessWidget {
                   child: BlocScenarioSelector(
                     selectedScenario: state.selectedScenario,
                     dataSize: state.dataSize,
-                    onScenarioSelected: (scenario, size) {
+                    selectedStressLevel: state.selectedStressLevel,
+                    onScenarioSelected: (scenario, size,
+                        {TestStressLevel? stressLevel}) {
+                      // ZMIENIONE sygnaturę
                       context.read<HomeBloc>().add(
                             SelectScenario(
                               scenarioType: scenario,
                               dataSize: size,
+                              stressLevel: stressLevel,
                             ),
                           );
                     },
@@ -52,6 +57,8 @@ class BlocHomePage extends StatelessWidget {
                               builder: (context) => BlocBenchmarkPage(
                                 scenarioType: state.selectedScenario!,
                                 dataSize: state.dataSize,
+                                stressLevel:
+                                    state.selectedStressLevel, // DODANE
                               ),
                             ),
                           );

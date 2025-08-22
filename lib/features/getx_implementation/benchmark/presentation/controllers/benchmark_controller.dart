@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:math';
+import 'dart:math' as math;
 import 'package:get/get.dart';
 import 'package:moviedb_benchmark/core/api/tmdb_api__client.dart';
 import 'package:moviedb_benchmark/core/models/movie.dart';
@@ -8,6 +8,7 @@ import 'package:moviedb_benchmark/core/models/ui_element_state.dart';
 import 'package:moviedb_benchmark/core/utils/enums.dart';
 import 'package:moviedb_benchmark/core/utils/memory_monitor.dart';
 import 'package:moviedb_benchmark/core/utils/uip_tracker.dart';
+import 'package:moviedb_benchmark/core/utils/ui_stress_config.dart';
 
 class BenchmarkController extends GetxController {
   final TmdbApiClient apiClient = Get.put(TmdbApiClient());
@@ -34,11 +35,14 @@ class BenchmarkController extends GetxController {
   final frameCounter = 0.obs;
   final lastUpdatedMovieIds = <int>[].obs;
 
+  // DODANE - stress level
+  final stressLevel = Rx<TestStressLevel?>(null);
+
   int dataSize = 0;
   DateTime? startTime;
   DateTime? endTime;
   Timer? _scenarioTimer;
-  final Random _random = Random(42); // Fixed seed for consistency
+  final math.Random _random = math.Random(42); // Fixed seed for consistency
 
   // Predefined configurations
   final List<String> _genreNames = [
@@ -60,10 +64,12 @@ class BenchmarkController extends GetxController {
     super.onClose();
   }
 
-  void startBenchmark(ScenarioType scenario, int size) async {
+  void startBenchmark(ScenarioType scenario, int size,
+      {TestStressLevel? stress}) async {
     UIPerformanceTracker.markAction();
     scenarioType.value = scenario;
     dataSize = size;
+    stressLevel.value = stress; // DODANE
     startTime = DateTime.now();
     status.value = BenchmarkStatus.loading;
 
@@ -246,7 +252,7 @@ class BenchmarkController extends GetxController {
 
       // Backward operations (rollback every 8th cycle)
       if (cycle % 8 == 7) {
-        undoToStep(max(0, currentHistoryIndex.value - 4));
+        undoToStep(math.max(0, currentHistoryIndex.value - 4));
       }
 
       cycle++;
@@ -370,8 +376,11 @@ class BenchmarkController extends GetxController {
     }
   }
 
-  // S03 - UI Granular Updates Implementation
+  // S03 - UI Granular Updates Implementation - ZMIENIONE
   Future<void> _runUiGranularUpdates() async {
+    final stress = stressLevel.value ?? TestStressLevel.medium;
+    final config = UIStressConfig.getConfig(stress);
+
     // Initialize UI states for all movies
     final initialStates = <int, UIElementState>{};
     for (final movie in movies) {
@@ -381,10 +390,9 @@ class BenchmarkController extends GetxController {
     UIPerformanceTracker.markAction();
     uiElementStates.value = initialStates;
 
-    _scenarioTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
-      // 60 FPS
-      if (frameCounter.value >= 1800) {
-        // 30 seconds
+    _scenarioTimer = Timer.periodic(config.timerInterval, (timer) {
+      final targetFrames = (30000 ~/ config.timerInterval.inMilliseconds);
+      if (frameCounter.value >= targetFrames) {
         timer.cancel();
         _completeTest();
         return;
@@ -392,29 +400,100 @@ class BenchmarkController extends GetxController {
 
       // Update different percentages of movies per frame
       final movieCount = movies.length;
-      final likeUpdates = _getRandomMovieIds(movieCount, 0.40); // 10%
-      final viewUpdates = _getRandomMovieIds(movieCount, 0.60); // 20%
-      final progressUpdates = _getRandomMovieIds(movieCount, 0.15); // 5%
-      final downloadUpdates = _getRandomMovieIds(movieCount, 0.09); // 3%
-      final ratingUpdates = _getRandomMovieIds(movieCount, 0.15); // 1%
+      final likeUpdates =
+          _getRandomMovieIds(movieCount, config.likeUpdatePercent);
+      final viewUpdates =
+          _getRandomMovieIds(movieCount, config.viewUpdatePercent);
+      final progressUpdates =
+          _getRandomMovieIds(movieCount, config.progressUpdatePercent);
+      final downloadUpdates =
+          _getRandomMovieIds(movieCount, config.downloadUpdatePercent);
+      final ratingUpdates =
+          _getRandomMovieIds(movieCount, config.ratingUpdatePercent);
 
       updateMovieLikeStatus(likeUpdates);
       updateMovieViewCount(viewUpdates);
       updateMovieProgress(progressUpdates);
       updateMovieDownloadStatus(downloadUpdates);
       updateMovieRating(ratingUpdates);
+
+      // Heavy operations
+      if (frameCounter.value % config.heavySortFrequency == 0) {
+        heavySortOperation(config.mathIterations);
+      }
+
+      if (frameCounter.value % config.heavyFilterFrequency == 0) {
+        heavyFilterOperation(config.mathIterations);
+      }
     });
   }
 
+  // DODANE - Heavy operations dla GetX
+  void heavySortOperation(int iterations) {
+    UIPerformanceTracker.markAction();
+
+    final sorted = [...movies];
+    sorted.sort((a, b) {
+      double aWeight = a.voteAverage;
+      double bWeight = b.voteAverage;
+
+      for (int k = 0; k < iterations; k++) {
+        aWeight += math.sin(a.id * k / 50.0) * 0.001;
+        bWeight += math.sin(b.id * k / 50.0) * 0.001;
+      }
+
+      return bWeight.compareTo(aWeight);
+    });
+
+    movies.value = sorted;
+    frameCounter.value = frameCounter.value + 1;
+  }
+
+  void heavyFilterOperation(int iterations) {
+    UIPerformanceTracker.markAction();
+
+    final filtered = <Movie>[];
+    for (final movie in movies) {
+      double complexity = 0;
+      for (int i = 0; i < iterations * 5; i++) {
+        complexity += math.cos(movie.id * i / 100.0);
+      }
+
+      if (complexity > -iterations * 2) {
+        filtered.add(movie);
+      }
+    }
+
+    final newProcessingState = processingState.value.copyWith(
+      filteredMovies: filtered,
+      processingStep: processingState.value.processingStep + 1,
+      timestamp: DateTime.now(),
+    );
+
+    processingState.value = newProcessingState;
+    frameCounter.value = frameCounter.value + 1;
+  }
+
+  // ZMIENIONE - wszystkie update metody używają konfiguracji
   void updateMovieLikeStatus(List<int> movieIds) {
     UIPerformanceTracker.markAction();
 
+    final config =
+        UIStressConfig.getConfig(stressLevel.value ?? TestStressLevel.medium);
     final newStates = Map<int, UIElementState>.from(uiElementStates);
+
     for (final movieId in movieIds) {
       final currentState = newStates[movieId];
       if (currentState != null) {
+        double lightCalculation = 0;
+        for (int i = 0; i < config.mathIterations; i++) {
+          lightCalculation += math.sin(movieId * i / 100.0);
+        }
+
         newStates[movieId] = currentState.copyWith(
           isLiked: !currentState.isLiked,
+          rating:
+              (currentState.rating + lightCalculation * 0.01).clamp(0.0, 10.0),
           lastUpdated: DateTime.now(),
         );
       }
@@ -430,10 +509,18 @@ class BenchmarkController extends GetxController {
   void updateMovieViewCount(List<int> movieIds) {
     UIPerformanceTracker.markAction();
 
+    final config =
+        UIStressConfig.getConfig(stressLevel.value ?? TestStressLevel.medium);
     final newStates = Map<int, UIElementState>.from(uiElementStates);
+
     for (final movieId in movieIds) {
       final currentState = newStates[movieId];
       if (currentState != null) {
+        double calculation = 0;
+        for (int i = 0; i < config.mathIterations; i++) {
+          calculation += math.cos(movieId * i / 80.0);
+        }
+
         newStates[movieId] = currentState.copyWith(
           viewCount: currentState.viewCount + 1,
           lastUpdated: DateTime.now(),
@@ -451,10 +538,18 @@ class BenchmarkController extends GetxController {
   void updateMovieProgress(List<int> movieIds) {
     UIPerformanceTracker.markAction();
 
+    final config =
+        UIStressConfig.getConfig(stressLevel.value ?? TestStressLevel.medium);
     final newStates = Map<int, UIElementState>.from(uiElementStates);
+
     for (final movieId in movieIds) {
       final currentState = newStates[movieId];
       if (currentState != null) {
+        double calculation = 0;
+        for (int i = 0; i < config.mathIterations; i++) {
+          calculation += math.tan(movieId * i / 120.0);
+        }
+
         final newProgress = (currentState.progress + 0.05).clamp(0.0, 1.0);
         newStates[movieId] = currentState.copyWith(
           progress: newProgress,
@@ -473,10 +568,18 @@ class BenchmarkController extends GetxController {
   void updateMovieDownloadStatus(List<int> movieIds) {
     UIPerformanceTracker.markAction();
 
+    final config =
+        UIStressConfig.getConfig(stressLevel.value ?? TestStressLevel.medium);
     final newStates = Map<int, UIElementState>.from(uiElementStates);
+
     for (final movieId in movieIds) {
       final currentState = newStates[movieId];
       if (currentState != null) {
+        double calculation = 0;
+        for (int i = 0; i < config.mathIterations; i++) {
+          calculation += math.log(movieId + i + 1);
+        }
+
         newStates[movieId] = currentState.copyWith(
           isDownloading: !currentState.isDownloading,
           lastUpdated: DateTime.now(),
@@ -494,10 +597,18 @@ class BenchmarkController extends GetxController {
   void updateMovieRating(List<int> movieIds) {
     UIPerformanceTracker.markAction();
 
+    final config =
+        UIStressConfig.getConfig(stressLevel.value ?? TestStressLevel.medium);
     final newStates = Map<int, UIElementState>.from(uiElementStates);
+
     for (final movieId in movieIds) {
       final currentState = newStates[movieId];
       if (currentState != null) {
+        double calculation = 0;
+        for (int i = 0; i < config.mathIterations; i++) {
+          calculation += math.sqrt(movieId * i + 1);
+        }
+
         final newRating = (currentState.rating + 0.5).clamp(0.0, 10.0);
         newStates[movieId] = currentState.copyWith(
           rating: newRating,
@@ -526,16 +637,15 @@ class BenchmarkController extends GetxController {
     UIPerformanceTracker.stopTracking();
 
     final memoryReport = MemoryMonitor.generateReport();
-    final uiReport = UIPerformanceTracker.generateReport(); // ZMIENIONE
+    final uiReport = UIPerformanceTracker.generateReport();
 
     print('=== GetX Memory Report for ${scenarioType.value} ===');
     print(memoryReport.toFormattedString());
-    print(
-        '=== GetX UI Performance Report for ${scenarioType.value} ==='); // ZMIENIONE
-    print(uiReport.toFormattedString()); // ZMIENIONE
+    print('=== GetX UI Performance Report for ${scenarioType.value} ===');
+    print(uiReport.toFormattedString());
   }
 
-  // Helper methods
+  // Helper methods - bez zmian
   List<Movie> _applyFilter(
       List<Movie> movies, String filterType, dynamic filterValue) {
     switch (filterType) {
