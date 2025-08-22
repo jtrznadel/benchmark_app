@@ -390,15 +390,22 @@ class BenchmarkController extends GetxController {
     UIPerformanceTracker.markAction();
     uiElementStates.value = initialStates;
 
+    // ZMIENIONE - użyj czasu zamiast frameCounter
+    const testDurationMs = 30000; // 30 sekund
+    final testStartTime = DateTime.now();
+
     _scenarioTimer = Timer.periodic(config.timerInterval, (timer) {
-      final targetFrames = (30000 ~/ config.timerInterval.inMilliseconds);
-      if (frameCounter.value >= targetFrames) {
+      // ZMIENIONE - sprawdź czas zamiast frameCounter
+      if (DateTime.now().difference(testStartTime).inMilliseconds >=
+          testDurationMs) {
         timer.cancel();
         _completeTest();
         return;
       }
 
-      // Update different percentages of movies per frame
+      // DODANE - jeden markAction na początku iteracji
+      UIPerformanceTracker.markAction();
+
       final movieCount = movies.length;
       final likeUpdates =
           _getRandomMovieIds(movieCount, config.likeUpdatePercent);
@@ -417,7 +424,6 @@ class BenchmarkController extends GetxController {
       updateMovieDownloadStatus(downloadUpdates);
       updateMovieRating(ratingUpdates);
 
-      // Heavy operations
       if (frameCounter.value % config.heavySortFrequency == 0) {
         heavySortOperation(config.mathIterations);
       }
@@ -425,6 +431,9 @@ class BenchmarkController extends GetxController {
       if (frameCounter.value % config.heavyFilterFrequency == 0) {
         heavyFilterOperation(config.mathIterations);
       }
+
+      // DODANE - increment frameCounter raz na iterację
+      frameCounter.value = frameCounter.value + 1;
     });
   }
 
@@ -476,8 +485,6 @@ class BenchmarkController extends GetxController {
 
   // ZMIENIONE - wszystkie update metody używają konfiguracji
   void updateMovieLikeStatus(List<int> movieIds) {
-    UIPerformanceTracker.markAction();
-
     final config =
         UIStressConfig.getConfig(stressLevel.value ?? TestStressLevel.medium);
     final newStates = Map<int, UIElementState>.from(uiElementStates);
@@ -500,15 +507,11 @@ class BenchmarkController extends GetxController {
     }
 
     uiElementStates.value = newStates;
-    UIPerformanceTracker.markAction();
-    frameCounter.value = frameCounter.value + 1;
-    UIPerformanceTracker.markAction();
+
     lastUpdatedMovieIds.value = movieIds;
   }
 
   void updateMovieViewCount(List<int> movieIds) {
-    UIPerformanceTracker.markAction();
-
     final config =
         UIStressConfig.getConfig(stressLevel.value ?? TestStressLevel.medium);
     final newStates = Map<int, UIElementState>.from(uiElementStates);
@@ -529,15 +532,11 @@ class BenchmarkController extends GetxController {
     }
 
     uiElementStates.value = newStates;
-    UIPerformanceTracker.markAction();
-    frameCounter.value = frameCounter.value + 1;
-    UIPerformanceTracker.markAction();
+
     lastUpdatedMovieIds.value = movieIds;
   }
 
   void updateMovieProgress(List<int> movieIds) {
-    UIPerformanceTracker.markAction();
-
     final config =
         UIStressConfig.getConfig(stressLevel.value ?? TestStressLevel.medium);
     final newStates = Map<int, UIElementState>.from(uiElementStates);
@@ -559,15 +558,11 @@ class BenchmarkController extends GetxController {
     }
 
     uiElementStates.value = newStates;
-    UIPerformanceTracker.markAction();
-    frameCounter.value = frameCounter.value + 1;
-    UIPerformanceTracker.markAction();
+
     lastUpdatedMovieIds.value = movieIds;
   }
 
   void updateMovieDownloadStatus(List<int> movieIds) {
-    UIPerformanceTracker.markAction();
-
     final config =
         UIStressConfig.getConfig(stressLevel.value ?? TestStressLevel.medium);
     final newStates = Map<int, UIElementState>.from(uiElementStates);
@@ -588,15 +583,11 @@ class BenchmarkController extends GetxController {
     }
 
     uiElementStates.value = newStates;
-    UIPerformanceTracker.markAction();
-    frameCounter.value = frameCounter.value + 1;
-    UIPerformanceTracker.markAction();
+
     lastUpdatedMovieIds.value = movieIds;
   }
 
   void updateMovieRating(List<int> movieIds) {
-    UIPerformanceTracker.markAction();
-
     final config =
         UIStressConfig.getConfig(stressLevel.value ?? TestStressLevel.medium);
     final newStates = Map<int, UIElementState>.from(uiElementStates);
@@ -618,9 +609,7 @@ class BenchmarkController extends GetxController {
     }
 
     uiElementStates.value = newStates;
-    UIPerformanceTracker.markAction();
-    frameCounter.value = frameCounter.value + 1;
-    UIPerformanceTracker.markAction();
+
     lastUpdatedMovieIds.value = movieIds;
   }
 

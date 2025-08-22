@@ -131,3 +131,5 @@ class HeavyFilterOperation extends BenchmarkEvent {
   @override
   List<Object?> get props => [iterations];
 }
+
+class IncrementFrameCounter extends BenchmarkEvent {}

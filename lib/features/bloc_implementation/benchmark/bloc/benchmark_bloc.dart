@@ -59,6 +59,12 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     on<HeavyFilterOperation>(_onHeavyFilterOperation);
 
     on<BenchmarkCompleted>(_onBenchmarkCompleted);
+    on<IncrementFrameCounter>(_onIncrementFrameCounter);
+  }
+
+  void _onIncrementFrameCounter(
+      IncrementFrameCounter event, Emitter<BenchmarkState> emit) {
+    emit(state.copyWith(frameCounter: state.frameCounter + 1));
   }
 
   Future<void> _onStartBenchmark(
@@ -397,6 +403,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
   }
 
   // S03 - UI Granular Updates Implementation
+  // ZMIEŃ całą metodę _runUiGranularUpdates:
   Future<void> _runUiGranularUpdates() async {
     final stressLevel = state.stressLevel ?? TestStressLevel.medium;
     final config = UIStressConfig.getConfig(stressLevel);
@@ -409,13 +416,21 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
     emit(state.copyWith(uiElementStates: initialStates));
 
+    // ZMIENIONE - użyj czasu zamiast frameCounter
+    const testDurationMs = 30000; // 30 sekund
+    final testStartTime = DateTime.now();
+
     _scenarioTimer = Timer.periodic(config.timerInterval, (timer) {
-      final targetFrames = (30000 ~/ config.timerInterval.inMilliseconds);
-      if (state.frameCounter >= targetFrames) {
+      // ZMIENIONE - sprawdź czas zamiast frameCounter
+      if (DateTime.now().difference(testStartTime).inMilliseconds >=
+          testDurationMs) {
         timer.cancel();
         add(BenchmarkCompleted());
         return;
       }
+
+      // DODANE - jeden markAction na początku iteracji
+      UIPerformanceTracker.markAction();
 
       final movieCount = state.movies.length;
       final likeUpdates =
@@ -442,13 +457,14 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       if (state.frameCounter % config.heavyFilterFrequency == 0) {
         add(HeavyFilterOperation(config.mathIterations));
       }
+
+      // DODANE - increment frameCounter raz na iterację
+      add(IncrementFrameCounter());
     });
   }
 
   void _onUpdateMovieLikeStatus(
       UpdateMovieLikeStatus event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markAction();
-
     final config =
         UIStressConfig.getConfig(state.stressLevel ?? TestStressLevel.medium);
     final newStates = Map<int, UIElementState>.from(state.uiElementStates);
@@ -472,15 +488,12 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
     emit(state.copyWith(
       uiElementStates: newStates,
-      frameCounter: state.frameCounter + 1,
       lastUpdatedMovieIds: event.movieIds,
     ));
   }
 
   void _onUpdateMovieViewCount(
       UpdateMovieViewCount event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markAction();
-
     final newStates = Map<int, UIElementState>.from(state.uiElementStates);
     for (final movieId in event.movieIds) {
       final currentState = newStates[movieId];
@@ -494,15 +507,12 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
     emit(state.copyWith(
       uiElementStates: newStates,
-      frameCounter: state.frameCounter + 1,
       lastUpdatedMovieIds: event.movieIds,
     ));
   }
 
   void _onUpdateMovieProgress(
       UpdateMovieProgress event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markAction();
-
     final newStates = Map<int, UIElementState>.from(state.uiElementStates);
     for (final movieId in event.movieIds) {
       final currentState = newStates[movieId];
@@ -517,15 +527,12 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
     emit(state.copyWith(
       uiElementStates: newStates,
-      frameCounter: state.frameCounter + 1,
       lastUpdatedMovieIds: event.movieIds,
     ));
   }
 
   void _onUpdateMovieDownloadStatus(
       UpdateMovieDownloadStatus event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markAction();
-
     final newStates = Map<int, UIElementState>.from(state.uiElementStates);
     for (final movieId in event.movieIds) {
       final currentState = newStates[movieId];
@@ -539,15 +546,12 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
     emit(state.copyWith(
       uiElementStates: newStates,
-      frameCounter: state.frameCounter + 1,
       lastUpdatedMovieIds: event.movieIds,
     ));
   }
 
   void _onUpdateMovieRating(
       UpdateMovieRating event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markAction();
-
     final newStates = Map<int, UIElementState>.from(state.uiElementStates);
     for (final movieId in event.movieIds) {
       final currentState = newStates[movieId];
@@ -562,15 +566,12 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
     emit(state.copyWith(
       uiElementStates: newStates,
-      frameCounter: state.frameCounter + 1,
       lastUpdatedMovieIds: event.movieIds,
     ));
   }
 
   void _onHeavySortOperation(
       HeavySortOperation event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markAction();
-
     final sorted = [...state.movies];
     sorted.sort((a, b) {
       double aWeight = a.voteAverage;
@@ -586,14 +587,11 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
     emit(state.copyWith(
       movies: sorted,
-      frameCounter: state.frameCounter + 1,
     ));
   }
 
   void _onHeavyFilterOperation(
       HeavyFilterOperation event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markAction();
-
     final filtered = <Movie>[];
     for (final movie in state.movies) {
       double complexity = 0;
@@ -614,7 +612,6 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
     emit(state.copyWith(
       processingState: newProcessingState,
-      frameCounter: state.frameCounter + 1,
     ));
   }
 
