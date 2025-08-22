@@ -7,6 +7,7 @@ import 'package:moviedb_benchmark/core/models/processing_state.dart';
 import 'package:moviedb_benchmark/core/models/ui_element_state.dart';
 import 'package:moviedb_benchmark/core/utils/enums.dart';
 import 'package:moviedb_benchmark/core/utils/memory_monitor.dart';
+import 'package:moviedb_benchmark/core/utils/memory_stress_config.dart';
 import 'package:moviedb_benchmark/core/utils/uip_tracker.dart';
 import 'package:moviedb_benchmark/core/utils/ui_stress_config.dart';
 
@@ -234,21 +235,40 @@ class BenchmarkController extends GetxController {
 
   // S02 - Memory State History Implementation
   Future<void> _runMemoryStateHistory() async {
+    final stress = stressLevel.value ?? TestStressLevel.medium;
+    final config = MemoryStressConfig.getConfig(stress);
+
     int cycle = 0;
-    _scenarioTimer = Timer.periodic(const Duration(milliseconds: 150), (timer) {
-      if (cycle >= 400) {
-        // ~60 seconds
+    const testDurationMs = 60000; // 60 sekund
+    final testStartTime = DateTime.now();
+
+    _scenarioTimer = Timer.periodic(config.operationInterval, (timer) {
+      if (DateTime.now().difference(testStartTime).inMilliseconds >=
+          testDurationMs) {
         timer.cancel();
         _completeTest();
         return;
       }
 
-      // Forward operations (4 steps)
-      applyFilterConfiguration(
-          _filterTypes[cycle % _filterTypes.length], cycle);
-      _applySortConfiguration(_sortTypes[cycle % _sortTypes.length]);
-      _applyGroupConfiguration(_groupTypes[cycle % _groupTypes.length]);
-      _applyPaginationConfiguration(cycle % 10);
+      // Memory-intensive operations cycle
+      for (int i = 0; i < config.deepCopyOperations; i++) {
+        applyFilterConfiguration(
+            _filterTypes[cycle % _filterTypes.length], cycle);
+        _applySortConfiguration(_sortTypes[cycle % _sortTypes.length]);
+        _applyGroupConfiguration(_groupTypes[cycle % _groupTypes.length]);
+        _applyPaginationConfiguration(cycle % 10);
+      }
+
+      // Memory stress operations
+      _createComplexObjects(config.complexObjectsPerCycle);
+      _allocateLargeLists(config.largeListAllocations);
+      _performStringOperations(config.stringConcatenations);
+      _createLargeMaps(config.mapCreations);
+
+      // Memory cleanup operations (simulate GC pressure)
+      if (cycle % 5 == 4) {
+        _cleanupOldStates(config.stateRetentionPercent);
+      }
 
       // Backward operations (rollback every 8th cycle)
       if (cycle % 8 == 7) {
@@ -257,6 +277,229 @@ class BenchmarkController extends GetxController {
 
       cycle++;
     });
+  }
+
+  void _createComplexObjects(int count) {
+    UIPerformanceTracker.markAction();
+
+    // Create complex nested objects to stress memory allocation
+    final complexData = <String, dynamic>{};
+    for (int i = 0; i < count; i++) {
+      final movieCopy = movies.isNotEmpty ? movies[i % movies.length] : null;
+
+      if (movieCopy != null) {
+        // Create deep copies with additional data
+        complexData['object_$i'] = {
+          'movie': movieCopy,
+          'metadata': _createMetadata(i),
+          'analytics': _createAnalyticsData(i),
+          'cache': _createCacheData(i),
+          'timestamp': DateTime.now(),
+        };
+      }
+    }
+
+    final currentState = processingState.value;
+    final newMetrics = Map<String, double>.from(currentState.calculatedMetrics);
+    newMetrics['complexObjects'] = count.toDouble();
+    newMetrics['memoryPressure'] = (newMetrics['memoryPressure'] ?? 0) + 1;
+
+    final newState = currentState.copyWith(
+      calculatedMetrics: newMetrics,
+      processingStep: currentState.processingStep + 1,
+      timestamp: DateTime.now(),
+    );
+
+    final newHistory = [...stateHistory, newState];
+    final newLog = [...operationLog, 'Created $count complex objects'];
+
+    processingState.value = newState;
+    UIPerformanceTracker.markAction();
+    stateHistory.value = newHistory;
+    UIPerformanceTracker.markAction();
+    currentHistoryIndex.value = newHistory.length - 1;
+    UIPerformanceTracker.markAction();
+    operationLog.value = newLog;
+  }
+
+  void _allocateLargeLists(int count) {
+    UIPerformanceTracker.markAction();
+
+    // Allocate large lists to stress memory
+    final largeLists = <List<dynamic>>[];
+    for (int i = 0; i < count; i++) {
+      final largeList = List.generate(
+          1000,
+          (index) => {
+                'id': index,
+                'data': 'Item $index with large data payload: ${'x' * 100}',
+                'nested': List.generate(10, (j) => 'nested_$j'),
+                'timestamp': DateTime.now().millisecondsSinceEpoch,
+              });
+      largeLists.add(largeList);
+    }
+
+    final currentState = processingState.value;
+    final newMetrics = Map<String, double>.from(currentState.calculatedMetrics);
+    newMetrics['largeListsAllocated'] = count.toDouble();
+
+    final newState = currentState.copyWith(
+      calculatedMetrics: newMetrics,
+      processingStep: currentState.processingStep + 1,
+      timestamp: DateTime.now(),
+    );
+
+    final newHistory = [...stateHistory, newState];
+    final newLog = [...operationLog, 'Allocated $count large lists'];
+
+    processingState.value = newState;
+    UIPerformanceTracker.markAction();
+    stateHistory.value = newHistory;
+    UIPerformanceTracker.markAction();
+    currentHistoryIndex.value = newHistory.length - 1;
+    UIPerformanceTracker.markAction();
+    operationLog.value = newLog;
+  }
+
+  void _performStringOperations(int count) {
+    UIPerformanceTracker.markAction();
+
+    // Perform memory-intensive string operations
+    String result = '';
+    for (int i = 0; i < count; i++) {
+      result += 'String operation $i with movie data: ';
+      if (movies.isNotEmpty) {
+        final movie = movies[i % movies.length];
+        result +=
+            '${movie.title} - ${movie.overview.substring(0, math.min(50, movie.overview.length))}';
+      }
+      result += '\n';
+    }
+
+    final currentState = processingState.value;
+    final newMetrics = Map<String, double>.from(currentState.calculatedMetrics);
+    newMetrics['stringOperations'] = count.toDouble();
+    newMetrics['stringLength'] = result.length.toDouble();
+
+    final newState = currentState.copyWith(
+      calculatedMetrics: newMetrics,
+      processingStep: currentState.processingStep + 1,
+      timestamp: DateTime.now(),
+    );
+
+    final newHistory = [...stateHistory, newState];
+    final newLog = [...operationLog, 'Performed $count string operations'];
+
+    processingState.value = newState;
+    UIPerformanceTracker.markAction();
+    stateHistory.value = newHistory;
+    UIPerformanceTracker.markAction();
+    currentHistoryIndex.value = newHistory.length - 1;
+    UIPerformanceTracker.markAction();
+    operationLog.value = newLog;
+  }
+
+  void _createLargeMaps(int count) {
+    UIPerformanceTracker.markAction();
+
+    // Create large maps to stress memory allocation
+    final largeMaps = <Map<String, dynamic>>[];
+    for (int i = 0; i < count; i++) {
+      final largeMap = <String, dynamic>{};
+      for (int j = 0; j < 100; j++) {
+        largeMap['key_${i}_$j'] = {
+          'value': 'Large value $j with repeated data: ${'data' * 25}',
+          'metadata': List.generate(5, (k) => 'meta_$k'),
+          'timestamp': DateTime.now(),
+        };
+      }
+      largeMaps.add(largeMap);
+    }
+
+    final currentState = processingState.value;
+    final newMetrics = Map<String, double>.from(currentState.calculatedMetrics);
+    newMetrics['largeMapsCreated'] = count.toDouble();
+
+    final newState = currentState.copyWith(
+      calculatedMetrics: newMetrics,
+      processingStep: currentState.processingStep + 1,
+      timestamp: DateTime.now(),
+    );
+
+    final newHistory = [...stateHistory, newState];
+    final newLog = [...operationLog, 'Created $count large maps'];
+
+    processingState.value = newState;
+    UIPerformanceTracker.markAction();
+    stateHistory.value = newHistory;
+    UIPerformanceTracker.markAction();
+    currentHistoryIndex.value = newHistory.length - 1;
+    UIPerformanceTracker.markAction();
+    operationLog.value = newLog;
+  }
+
+  void _cleanupOldStates(double retentionPercent) {
+    UIPerformanceTracker.markAction();
+
+    // Clean up old states to simulate memory management
+    final currentHistory = stateHistory.value;
+    final retainCount = (currentHistory.length * retentionPercent).round();
+    final newHistory = currentHistory.length > retainCount
+        ? currentHistory.sublist(currentHistory.length - retainCount)
+        : currentHistory;
+
+    final newLog = [
+      ...operationLog,
+      'Cleaned up ${currentHistory.length - newHistory.length} old states'
+    ];
+
+    stateHistory.value = newHistory;
+    UIPerformanceTracker.markAction();
+    currentHistoryIndex.value =
+        math.min(currentHistoryIndex.value, newHistory.length - 1);
+    UIPerformanceTracker.markAction();
+    operationLog.value = newLog;
+  }
+
+// Helper methods for complex object creation:
+  Map<String, dynamic> _createMetadata(int index) {
+    return {
+      'id': index,
+      'created': DateTime.now(),
+      'tags': List.generate(10, (i) => 'tag_$i'),
+      'properties': {
+        'size': index * 1.5,
+        'weight': index * 2.3,
+        'category': 'category_${index % 5}',
+      },
+    };
+  }
+
+  Map<String, dynamic> _createAnalyticsData(int index) {
+    return {
+      'views': index * 100,
+      'likes': index * 10,
+      'shares': index * 5,
+      'comments': List.generate(index % 20, (i) => 'Comment $i with data'),
+      'metrics': {
+        'engagement': index * 0.1,
+        'retention': index * 0.05,
+        'conversion': index * 0.02,
+      },
+    };
+  }
+
+  Map<String, dynamic> _createCacheData(int index) {
+    return {
+      'cached_at': DateTime.now(),
+      'expires_at': DateTime.now().add(Duration(hours: index % 24)),
+      'data': List.generate(50, (i) => 'cache_data_${index}_$i'),
+      'metadata': {
+        'size_bytes': index * 1024,
+        'compression': 'gzip',
+        'version': '1.0.$index',
+      },
+    };
   }
 
   void applyFilterConfiguration(String filterType, dynamic filterValue) {

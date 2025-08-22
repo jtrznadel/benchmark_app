@@ -133,3 +133,41 @@ class HeavyFilterOperation extends BenchmarkEvent {
 }
 
 class IncrementFrameCounter extends BenchmarkEvent {}
+
+// Dodaj te eventy na końcu pliku benchmark_event.dart
+
+// Memory stress events
+class CreateComplexObjects extends BenchmarkEvent {
+  final int count;
+  const CreateComplexObjects(this.count);
+  @override
+  List<Object?> get props => [count];
+}
+
+class AllocateLargeLists extends BenchmarkEvent {
+  final int count;
+  const AllocateLargeLists(this.count);
+  @override
+  List<Object?> get props => [count];
+}
+
+class PerformStringOperations extends BenchmarkEvent {
+  final int count;
+  const PerformStringOperations(this.count);
+  @override
+  List<Object?> get props => [count];
+}
+
+class CreateLargeMaps extends BenchmarkEvent {
+  final int count;
+  const CreateLargeMaps(this.count);
+  @override
+  List<Object?> get props => [count];
+}
+
+class CleanupOldStates extends BenchmarkEvent {
+  final double retentionPercent;
+  const CleanupOldStates(this.retentionPercent);
+  @override
+  List<Object?> get props => [retentionPercent];
+}

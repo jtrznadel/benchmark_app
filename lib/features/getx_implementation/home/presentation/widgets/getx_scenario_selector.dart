@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:moviedb_benchmark/core/utils/enums.dart';
+import 'package:moviedb_benchmark/core/utils/memory_stress_config.dart';
 import 'package:moviedb_benchmark/core/utils/ui_stress_config.dart';
 
 class GetXScenarioSelector extends StatelessWidget {
@@ -50,6 +51,19 @@ class GetXScenarioSelector extends StatelessWidget {
               _buildStressChip(TestStressLevel.heavy),
             ],
           ),
+        ] else if (selectedScenario == ScenarioType.memoryStateHistory) ...[
+          const Text('Poziom obciążenia pamięci:'),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildMemoryStressChip(TestStressLevel.light),
+              const SizedBox(width: 10),
+              _buildMemoryStressChip(TestStressLevel.medium),
+              const SizedBox(width: 10),
+              _buildMemoryStressChip(TestStressLevel.heavy),
+            ],
+          ),
         ] else ...[
           const Text('Wielkość zbioru danych:'),
           const SizedBox(height: 8),
@@ -65,6 +79,20 @@ class GetXScenarioSelector extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildMemoryStressChip(TestStressLevel level) {
+    final isSelected = selectedStressLevel == level;
+    return ChoiceChip(
+      label: Text(MemoryStressConfig.getLevelLabel(level)),
+      selected: isSelected,
+      selectedColor: Colors.purple.withOpacity(0.3),
+      onSelected: (selected) {
+        if (selected && selectedScenario != null) {
+          onScenarioSelected(selectedScenario!, 1000, stressLevel: level);
+        }
+      },
     );
   }
 
@@ -102,7 +130,8 @@ class GetXScenarioSelector extends StatelessWidget {
                 const SizedBox(height: 12),
                 ElevatedButton(
                   onPressed: () {
-                    if (type == ScenarioType.uiGranularUpdates) {
+                    if (type == ScenarioType.uiGranularUpdates ||
+                        type == ScenarioType.memoryStateHistory) {
                       onScenarioSelected(type, 1000,
                           stressLevel: selectedStressLevel);
                     } else {
