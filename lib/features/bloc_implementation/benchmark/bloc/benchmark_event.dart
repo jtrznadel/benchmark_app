@@ -11,14 +11,16 @@ abstract class BenchmarkEvent extends Equatable {
 class StartBenchmark extends BenchmarkEvent {
   final ScenarioType scenarioType;
   final int dataSize;
+  final TestStressLevel? stressLevel; // DODANE
 
   const StartBenchmark({
     required this.scenarioType,
     required this.dataSize,
+    this.stressLevel, // DODANE
   });
 
   @override
-  List<Object?> get props => [scenarioType, dataSize];
+  List<Object?> get props => [scenarioType, dataSize, stressLevel]; // ZMIENIONE
 }
 
 // S01 - CPU Processing Pipeline Events
@@ -114,3 +116,18 @@ class UpdateMovieRating extends BenchmarkEvent {
 }
 
 class BenchmarkCompleted extends BenchmarkEvent {}
+// Na końcu pliku dodaj:
+
+class HeavySortOperation extends BenchmarkEvent {
+  final int iterations;
+  const HeavySortOperation(this.iterations);
+  @override
+  List<Object?> get props => [iterations];
+}
+
+class HeavyFilterOperation extends BenchmarkEvent {
+  final int iterations;
+  const HeavyFilterOperation(this.iterations);
+  @override
+  List<Object?> get props => [iterations];
+}

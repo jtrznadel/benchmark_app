@@ -11,6 +11,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     emit(state.copyWith(
       selectedScenario: event.scenarioType,
       dataSize: event.dataSize,
+      selectedStressLevel: event.stressLevel, // DODANE
     ));
   }
 }

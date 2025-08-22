@@ -16,11 +16,13 @@ import '../../bloc/benchmark_state.dart';
 class BlocBenchmarkPage extends StatefulWidget {
   final ScenarioType scenarioType;
   final int dataSize;
+  final TestStressLevel? stressLevel;
 
   const BlocBenchmarkPage({
     super.key,
     required this.scenarioType,
     required this.dataSize,
+    this.stressLevel, // DODANE
   });
 
   @override
@@ -34,7 +36,10 @@ class _BlocBenchmarkPageState extends State<BlocBenchmarkPage> {
       create: (context) => BenchmarkBloc(
         apiClient: context.read<TmdbApiClient>(),
       )..add(StartBenchmark(
-          scenarioType: widget.scenarioType, dataSize: widget.dataSize)),
+          scenarioType: widget.scenarioType,
+          dataSize: widget.dataSize,
+          stressLevel: widget.stressLevel, // DODANE
+        )),
       child: _BlocBenchmarkPageContent(
         scenarioType: widget.scenarioType,
         dataSize: widget.dataSize,
@@ -177,6 +182,9 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
               Text('Frame: ${state.frameCounter}'),
               Text('Movies: ${state.movies.length}'),
               Text('Updates: ${state.lastUpdatedMovieIds.length}'),
+              // DODANE
+              if (state.stressLevel != null)
+                Text('Level: ${state.stressLevel.toString().split('.').last}'),
             ],
           ),
         ),

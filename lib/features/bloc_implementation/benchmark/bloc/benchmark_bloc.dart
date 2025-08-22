@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:math' as math;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:moviedb_benchmark/core/api/tmdb_api__client.dart';
 import 'package:moviedb_benchmark/core/models/movie.dart';
 import 'package:moviedb_benchmark/core/utils/enums.dart';
 import 'package:moviedb_benchmark/core/utils/memory_monitor.dart';
+import 'package:moviedb_benchmark/core/utils/ui_stress_config.dart';
 import 'package:moviedb_benchmark/core/utils/uip_tracker.dart';
 import 'package:moviedb_benchmark/core/models/processing_state.dart';
 import 'package:moviedb_benchmark/core/models/ui_element_state.dart';
@@ -53,18 +55,21 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     on<UpdateMovieProgress>(_onUpdateMovieProgress);
     on<UpdateMovieDownloadStatus>(_onUpdateMovieDownloadStatus);
     on<UpdateMovieRating>(_onUpdateMovieRating);
+    on<HeavySortOperation>(_onHeavySortOperation);
+    on<HeavyFilterOperation>(_onHeavyFilterOperation);
 
     on<BenchmarkCompleted>(_onBenchmarkCompleted);
   }
 
   Future<void> _onStartBenchmark(
       StartBenchmark event, Emitter<BenchmarkState> emit) async {
-    UIPerformanceTracker.markAction(); // DODANE
+    UIPerformanceTracker.markAction();
 
     emit(state.copyWith(
       status: BenchmarkStatus.loading,
       scenarioType: event.scenarioType,
       dataSize: event.dataSize,
+      stressLevel: event.stressLevel, // DODANE
       startTime: DateTime.now(),
     ));
 
@@ -393,6 +398,9 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
   // S03 - UI Granular Updates Implementation
   Future<void> _runUiGranularUpdates() async {
+    final stressLevel = state.stressLevel ?? TestStressLevel.medium;
+    final config = UIStressConfig.getConfig(stressLevel);
+
     // Initialize UI states for all movies
     final initialStates = <int, UIElementState>{};
     for (final movie in state.movies) {
@@ -401,28 +409,39 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
     emit(state.copyWith(uiElementStates: initialStates));
 
-    _scenarioTimer = Timer.periodic(const Duration(milliseconds: 16), (timer) {
-      // 60 FPS
-      if (state.frameCounter >= 1800) {
-        // 30 seconds
+    _scenarioTimer = Timer.periodic(config.timerInterval, (timer) {
+      final targetFrames = (30000 ~/ config.timerInterval.inMilliseconds);
+      if (state.frameCounter >= targetFrames) {
         timer.cancel();
         add(BenchmarkCompleted());
         return;
       }
 
-      // Update different percentages of movies per frame
       final movieCount = state.movies.length;
-      final likeUpdates = _getRandomMovieIds(movieCount, 0.40); // 10%
-      final viewUpdates = _getRandomMovieIds(movieCount, 0.60); // 20%
-      final progressUpdates = _getRandomMovieIds(movieCount, 0.15); // 5%
-      final downloadUpdates = _getRandomMovieIds(movieCount, 0.09); // 3%
-      final ratingUpdates = _getRandomMovieIds(movieCount, 0.15); // 1%
+      final likeUpdates =
+          _getRandomMovieIds(movieCount, config.likeUpdatePercent);
+      final viewUpdates =
+          _getRandomMovieIds(movieCount, config.viewUpdatePercent);
+      final progressUpdates =
+          _getRandomMovieIds(movieCount, config.progressUpdatePercent);
+      final downloadUpdates =
+          _getRandomMovieIds(movieCount, config.downloadUpdatePercent);
+      final ratingUpdates =
+          _getRandomMovieIds(movieCount, config.ratingUpdatePercent);
 
       add(UpdateMovieLikeStatus(likeUpdates));
       add(UpdateMovieViewCount(viewUpdates));
       add(UpdateMovieProgress(progressUpdates));
       add(UpdateMovieDownloadStatus(downloadUpdates));
       add(UpdateMovieRating(ratingUpdates));
+
+      if (state.frameCounter % config.heavySortFrequency == 0) {
+        add(HeavySortOperation(config.mathIterations));
+      }
+
+      if (state.frameCounter % config.heavyFilterFrequency == 0) {
+        add(HeavyFilterOperation(config.mathIterations));
+      }
     });
   }
 
@@ -430,12 +449,22 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       UpdateMovieLikeStatus event, Emitter<BenchmarkState> emit) {
     UIPerformanceTracker.markAction();
 
+    final config =
+        UIStressConfig.getConfig(state.stressLevel ?? TestStressLevel.medium);
     final newStates = Map<int, UIElementState>.from(state.uiElementStates);
+
     for (final movieId in event.movieIds) {
       final currentState = newStates[movieId];
       if (currentState != null) {
+        double lightCalculation = 0;
+        for (int i = 0; i < config.mathIterations; i++) {
+          lightCalculation += math.sin(movieId * i / 100.0);
+        }
+
         newStates[movieId] = currentState.copyWith(
           isLiked: !currentState.isLiked,
+          rating:
+              (currentState.rating + lightCalculation * 0.01).clamp(0.0, 10.0),
           lastUpdated: DateTime.now(),
         );
       }
@@ -535,6 +564,57 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       uiElementStates: newStates,
       frameCounter: state.frameCounter + 1,
       lastUpdatedMovieIds: event.movieIds,
+    ));
+  }
+
+  void _onHeavySortOperation(
+      HeavySortOperation event, Emitter<BenchmarkState> emit) {
+    UIPerformanceTracker.markAction();
+
+    final sorted = [...state.movies];
+    sorted.sort((a, b) {
+      double aWeight = a.voteAverage;
+      double bWeight = b.voteAverage;
+
+      for (int k = 0; k < event.iterations; k++) {
+        aWeight += math.sin(a.id * k / 50.0) * 0.001;
+        bWeight += math.sin(b.id * k / 50.0) * 0.001;
+      }
+
+      return bWeight.compareTo(aWeight);
+    });
+
+    emit(state.copyWith(
+      movies: sorted,
+      frameCounter: state.frameCounter + 1,
+    ));
+  }
+
+  void _onHeavyFilterOperation(
+      HeavyFilterOperation event, Emitter<BenchmarkState> emit) {
+    UIPerformanceTracker.markAction();
+
+    final filtered = <Movie>[];
+    for (final movie in state.movies) {
+      double complexity = 0;
+      for (int i = 0; i < event.iterations * 5; i++) {
+        complexity += math.cos(movie.id * i / 100.0);
+      }
+
+      if (complexity > -event.iterations * 2) {
+        filtered.add(movie);
+      }
+    }
+
+    final newProcessingState = state.processingState.copyWith(
+      filteredMovies: filtered,
+      processingStep: state.processingState.processingStep + 1,
+      timestamp: DateTime.now(),
+    );
+
+    emit(state.copyWith(
+      processingState: newProcessingState,
+      frameCounter: state.frameCounter + 1,
     ));
   }
 

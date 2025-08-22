@@ -13,11 +13,13 @@ import '../widgets/getx_benchmark_controls.dart';
 class GetXBenchmarkPage extends StatefulWidget {
   final ScenarioType scenarioType;
   final int dataSize;
+  final TestStressLevel? stressLevel; // DODANE
 
   const GetXBenchmarkPage({
     super.key,
     required this.scenarioType,
     required this.dataSize,
+    this.stressLevel, // DODANE
   });
 
   @override
@@ -33,7 +35,9 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
     UIPerformanceTracker.startTracking();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      controller.startBenchmark(widget.scenarioType, widget.dataSize);
+      // ZMIENIONE - przekaż stressLevel
+      controller.startBenchmark(widget.scenarioType, widget.dataSize,
+          stress: widget.stressLevel);
     });
   }
 
@@ -151,6 +155,9 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
               Text('Frame: ${controller.frameCounter.value}'),
               Text('Movies: ${controller.movies.length}'),
               Text('Updates: ${controller.lastUpdatedMovieIds.length}'),
+              // DODANE - pokaż poziom stresu
+              if (widget.stressLevel != null)
+                Text('Level: ${widget.stressLevel.toString().split('.').last}'),
             ],
           ),
         ),

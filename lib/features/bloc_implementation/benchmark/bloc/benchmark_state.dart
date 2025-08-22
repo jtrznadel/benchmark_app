@@ -13,6 +13,7 @@ class BenchmarkState extends Equatable {
   final DateTime? startTime;
   final DateTime? endTime;
   final int loadedCount;
+  final TestStressLevel? stressLevel;
 
   // S01 - CPU Processing specific
   final ProcessingState processingState;
@@ -47,6 +48,7 @@ class BenchmarkState extends Equatable {
     this.uiElementStates = const {},
     this.frameCounter = 0,
     this.lastUpdatedMovieIds = const [],
+    this.stressLevel, // DODANE
   }) : processingState = processingState ?? ProcessingState();
 
   BenchmarkState copyWith({
@@ -67,6 +69,7 @@ class BenchmarkState extends Equatable {
     Map<int, UIElementState>? uiElementStates,
     int? frameCounter,
     List<int>? lastUpdatedMovieIds,
+    TestStressLevel? stressLevel,
   }) {
     return BenchmarkState(
       status: status ?? this.status,
@@ -87,6 +90,7 @@ class BenchmarkState extends Equatable {
       uiElementStates: uiElementStates ?? this.uiElementStates,
       frameCounter: frameCounter ?? this.frameCounter,
       lastUpdatedMovieIds: lastUpdatedMovieIds ?? this.lastUpdatedMovieIds,
+      stressLevel: stressLevel ?? this.stressLevel,
     );
   }
 
@@ -109,5 +113,6 @@ class BenchmarkState extends Equatable {
         uiElementStates,
         frameCounter,
         lastUpdatedMovieIds,
+        stressLevel,
       ];
 }
