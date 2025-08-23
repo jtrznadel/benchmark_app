@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:moviedb_benchmark/core/models/ui_operation.dart';
 import 'package:moviedb_benchmark/core/utils/enums.dart';
 
 abstract class BenchmarkEvent extends Equatable {
@@ -218,4 +219,27 @@ class UpdateMovieViewsBatch extends BenchmarkEvent {
   const UpdateMovieViewsBatch(this.movieIds);
   @override
   List<Object?> get props => [movieIds];
+}
+
+// Dodaj na końcu pliku:
+
+class PerformUnifiedBatch extends BenchmarkEvent {
+  final List<UIOperation> operations;
+  const PerformUnifiedBatch(this.operations);
+  @override
+  List<Object?> get props => [operations];
+}
+
+class PerformHeavyAnimations extends BenchmarkEvent {
+  final int animationCount;
+  const PerformHeavyAnimations(this.animationCount);
+  @override
+  List<Object?> get props => [animationCount];
+}
+
+class PerformCascadeOperations extends BenchmarkEvent {
+  final int cascadeCount;
+  const PerformCascadeOperations(this.cascadeCount);
+  @override
+  List<Object?> get props => [cascadeCount];
 }

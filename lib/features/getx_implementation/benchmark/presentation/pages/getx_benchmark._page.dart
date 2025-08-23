@@ -6,6 +6,7 @@ import 'package:moviedb_benchmark/core/utils/enums.dart';
 import 'package:moviedb_benchmark/core/utils/uip_tracker.dart';
 import 'package:moviedb_benchmark/core/widgets/enhanced_movie_card.dart';
 import 'package:moviedb_benchmark/core/models/ui_element_state.dart';
+import 'package:moviedb_benchmark/core/widgets/fair_movie_card.dart';
 import 'package:moviedb_benchmark/core/widgets/processing_info_display.dart';
 import 'package:moviedb_benchmark/core/widgets/cpu_processing_info_display.dart';
 import '../controllers/benchmark_controller.dart';
@@ -200,37 +201,38 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
 
     return Column(
       children: [
+        // Simple stats panel
         Container(
           padding: const EdgeInsets.all(16),
           color: Colors.purple.withOpacity(0.1),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Text('Frame: ${controller.frameCounter.value}'),
-              Text('Movies: ${controller.movies.length}'),
-              Text('Updates: ${controller.lastUpdatedMovieIds.length}'),
-              const Text('Level: Heavy'),
-            ],
-          ),
+          child: Obx(() => Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  Text('Frame: ${controller.frameCounter.value}'),
+                  Text('Movies: ${controller.movies.length}'),
+                  const Text('Level: HEAVY'),
+                ],
+              )),
         ),
+
+        // Simple ListView with identical widgets
         Expanded(
           child: ListView.builder(
             itemCount: controller.movies.length,
             itemBuilder: (context, index) {
               final movie = controller.movies[index];
+
               return Obx(() {
                 final uiState = controller.uiElementStates[movie.id] ??
                     UIElementState(movieId: movie.id);
 
-                return EnhancedMovieCard(
+                return FairMovieCard(
+                  key: ValueKey(movie.id),
                   movie: movie,
                   uiState: uiState,
-                  onLikeTap: () {
-                    controller.updateMovieLikeStatus([movie.id]);
-                  },
-                  onDownloadTap: () {
-                    controller.updateMovieDownloadStatus([movie.id]);
-                  },
+                  onLikeTap: () => controller.updateMovieLikeStatus([movie.id]),
+                  onDownloadTap: () =>
+                      controller.updateMovieDownloadStatus([movie.id]),
                 );
               });
             },

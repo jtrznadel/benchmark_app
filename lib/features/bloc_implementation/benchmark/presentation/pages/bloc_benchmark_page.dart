@@ -7,6 +7,7 @@ import 'package:moviedb_benchmark/core/utils/enums.dart';
 import 'package:moviedb_benchmark/core/utils/uip_tracker.dart';
 import 'package:moviedb_benchmark/core/widgets/enhanced_movie_card.dart';
 import 'package:moviedb_benchmark/core/models/ui_element_state.dart';
+import 'package:moviedb_benchmark/core/widgets/fair_movie_card.dart';
 import 'package:moviedb_benchmark/core/widgets/processing_info_display.dart';
 import 'package:moviedb_benchmark/core/widgets/cpu_processing_info_display.dart';
 import '../widgets/bloc_benchmark_controls.dart';
@@ -229,6 +230,7 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
 
     return Column(
       children: [
+        // Simple stats panel
         Container(
           padding: const EdgeInsets.all(16),
           color: Colors.blue.withOpacity(0.1),
@@ -237,31 +239,37 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
             children: [
               Text('Frame: ${state.frameCounter}'),
               Text('Movies: ${state.movies.length}'),
-              Text('Updates: ${state.lastUpdatedMovieIds.length}'),
-              const Text('Level: Heavy'),
+              const Text('Level: HEAVY'),
             ],
           ),
         ),
+
+        // Simple ListView with identical widgets
         Expanded(
           child: ListView.builder(
             itemCount: state.movies.length,
             itemBuilder: (context, index) {
               final movie = state.movies[index];
-              final uiState = state.uiElementStates[movie.id] ??
-                  UIElementState(movieId: movie.id);
 
-              return EnhancedMovieCard(
-                movie: movie,
-                uiState: uiState,
-                onLikeTap: () {
-                  context.read<BenchmarkBloc>().add(
-                        UpdateMovieLikeStatus([movie.id]),
-                      );
-                },
-                onDownloadTap: () {
-                  context.read<BenchmarkBloc>().add(
-                        UpdateMovieDownloadStatus([movie.id]),
-                      );
+              return BlocBuilder<BenchmarkBloc, BenchmarkState>(
+                buildWhen: (previous, current) =>
+                    previous.uiElementStates[movie.id] !=
+                    current.uiElementStates[movie.id],
+                builder: (context, state) {
+                  final uiState = state.uiElementStates[movie.id] ??
+                      UIElementState(movieId: movie.id);
+
+                  return FairMovieCard(
+                    key: ValueKey(movie.id),
+                    movie: movie,
+                    uiState: uiState,
+                    onLikeTap: () => context
+                        .read<BenchmarkBloc>()
+                        .add(UpdateMovieLikes([movie.id])),
+                    onDownloadTap: () => context
+                        .read<BenchmarkBloc>()
+                        .add(UpdateMovieDownloadsBatch([movie.id])),
+                  );
                 },
               );
             },

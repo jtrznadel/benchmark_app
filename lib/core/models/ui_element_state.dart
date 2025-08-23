@@ -9,14 +9,12 @@ class UIElementState extends Equatable {
   final double rating;
   final DateTime lastUpdated;
 
+  // Nowe pola dla intensywnego testowania
   final bool isAnimating;
   final double animationProgress;
   final int popularityScore;
   final bool isFeatured;
   final bool isWatched;
-  final List<String> tags;
-  final List<String> thumbnails;
-  final Map<String, dynamic> metadata;
   final double opacity;
   final bool isHighlighted;
 
@@ -33,9 +31,6 @@ class UIElementState extends Equatable {
     this.popularityScore = 0,
     this.isFeatured = false,
     this.isWatched = false,
-    this.tags = const [],
-    this.thumbnails = const [],
-    this.metadata = const {},
     this.opacity = 1.0,
     this.isHighlighted = false,
   }) : lastUpdated = lastUpdated ?? DateTime(2024, 1, 1);
@@ -53,9 +48,6 @@ class UIElementState extends Equatable {
     int? popularityScore,
     bool? isFeatured,
     bool? isWatched,
-    List<String>? tags,
-    List<String>? thumbnails,
-    Map<String, dynamic>? metadata,
     double? opacity,
     bool? isHighlighted,
   }) {
@@ -72,9 +64,6 @@ class UIElementState extends Equatable {
       popularityScore: popularityScore ?? this.popularityScore,
       isFeatured: isFeatured ?? this.isFeatured,
       isWatched: isWatched ?? this.isWatched,
-      tags: tags ?? this.tags,
-      thumbnails: thumbnails ?? this.thumbnails,
-      metadata: metadata ?? this.metadata,
       opacity: opacity ?? this.opacity,
       isHighlighted: isHighlighted ?? this.isHighlighted,
     );
@@ -94,9 +83,6 @@ class UIElementState extends Equatable {
         popularityScore,
         isFeatured,
         isWatched,
-        tags,
-        thumbnails,
-        metadata,
         opacity,
         isHighlighted,
       ];
