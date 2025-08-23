@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 class UIPerformanceResult {
   final double jankRate;
   final double avgLatencyMs;
+  final double siuuScore;
 
   final int totalFrames;
   final int jankFrames;
@@ -15,6 +16,7 @@ class UIPerformanceResult {
   UIPerformanceResult({
     required this.jankRate,
     required this.avgLatencyMs,
+    required this.siuuScore,
     required this.totalFrames,
     required this.jankFrames,
     required this.frameTimesMs,
@@ -28,6 +30,7 @@ UI Performance Report
 =====================
 Jank Rate: ${jankRate.toStringAsFixed(2)}% ($jankFrames/$totalFrames frames)
 Avg Action Latency: ${avgLatencyMs.toStringAsFixed(2)}ms
+SIUU Score: ${siuuScore.toStringAsFixed(2)}/100
 
 Raw Data:
 ---------
@@ -120,9 +123,16 @@ class UIPerformanceTracker {
         ? _measuredLatencies.reduce((a, b) => a + b) / _measuredLatencies.length
         : 0.0;
 
+    const latencyRangeMs = 200.0 - 16.67;
+    final sLatency = 100.0 * (200.0 - avgLatencyMs) / latencyRangeMs;
+    final sJank = 100.0 - jankRate;
+
+    final siuuScore = math.min(100.0, (0.7 * sLatency) + (0.3 * sJank));
+
     return UIPerformanceResult(
       jankRate: jankRate,
       avgLatencyMs: avgLatencyMs,
+      siuuScore: siuuScore.isNaN ? 0.0 : siuuScore,
       totalFrames: frameTimesMs.length,
       jankFrames: jankFrames,
       frameTimesMs: frameTimesMs,
@@ -135,6 +145,7 @@ class UIPerformanceTracker {
     return UIPerformanceResult(
       jankRate: 0,
       avgLatencyMs: 0,
+      siuuScore: 0,
       totalFrames: 0,
       jankFrames: 0,
       frameTimesMs: [],

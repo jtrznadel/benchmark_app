@@ -20,18 +20,13 @@ class BenchmarkController extends GetxController {
   final error = Rx<String?>(null);
   final loadedCount = 0.obs;
 
-  // S01
   final cpuProcessingState = CpuProcessingState().obs;
-
-  // S02
   final processingState = ProcessingState().obs;
   final currentProcessingCycle = 0.obs;
   final genreRotation = <String>[].obs;
   final stateHistory = <ProcessingState>[].obs;
   final currentHistoryIndex = 0.obs;
   final operationLog = <String>[].obs;
-
-  // S03
   final uiElementStates = <int, UIElementState>{}.obs;
   final frameCounter = 0.obs;
   final lastUpdatedMovieIds = <int>[].obs;
@@ -104,7 +99,6 @@ class BenchmarkController extends GetxController {
     }
   }
 
-  // S01
   Future<void> _runCpuProcessingPipeline() async {
     int cycle = 0;
     const maxCycles = 600;
@@ -119,6 +113,254 @@ class BenchmarkController extends GetxController {
       executeProcessingCycle(cycle);
       cycle++;
     });
+  }
+
+  Future<void> _runMemoryStateHistory() async {
+    const operationInterval = Duration(milliseconds: 50);
+    const complexObjectsPerCycle = 50;
+    const deepCopyOperations = 10;
+    const largeListAllocations = 30;
+    const stringConcatenations = 600;
+    const mapCreations = 15;
+    const stateRetentionPercent = 0.4;
+
+    int cycle = 0;
+    const testDurationMs = 60000;
+    final testStartTime = DateTime.now();
+
+    _scenarioTimer = Timer.periodic(operationInterval, (timer) {
+      if (DateTime.now().difference(testStartTime).inMilliseconds >=
+          testDurationMs) {
+        timer.cancel();
+        _completeTest();
+        return;
+      }
+
+      for (int i = 0; i < deepCopyOperations; i++) {
+        applyFilterConfiguration(
+            _filterTypes[cycle % _filterTypes.length], cycle);
+        _applySortConfiguration(_sortTypes[cycle % _sortTypes.length]);
+        _applyGroupConfiguration(_groupTypes[cycle % _groupTypes.length]);
+        _applyPaginationConfiguration(cycle % 10);
+      }
+
+      _createComplexObjects(complexObjectsPerCycle);
+      _allocateLargeLists(largeListAllocations);
+      _performStringOperations(stringConcatenations);
+      _createLargeMaps(mapCreations);
+
+      if (cycle % 5 == 4) {
+        _cleanupOldStates(stateRetentionPercent);
+      }
+
+      if (cycle % 8 == 7) {
+        undoToStep(math.max(0, currentHistoryIndex.value - 4));
+      }
+
+      cycle++;
+    });
+  }
+
+  Future<void> _runUiGranularUpdates() async {
+    const timerInterval = Duration(milliseconds: 4);
+    const batchOperationsCount = 800;
+    const heavyAnimationCount = 500;
+    const cascadeOperationsCount = 300;
+
+    final initialStates = <int, UIElementState>{};
+    for (final movie in movies) {
+      initialStates[movie.id] = UIElementState(movieId: movie.id);
+    }
+
+    UIPerformanceTracker.markAction();
+    uiElementStates.value = initialStates;
+
+    const testDurationMs = 30000;
+    final testStartTime = DateTime.now();
+    int cycleCount = 0;
+
+    _scenarioTimer = Timer.periodic(timerInterval, (timer) {
+      if (DateTime.now().difference(testStartTime).inMilliseconds >=
+          testDurationMs) {
+        timer.cancel();
+        _completeTest();
+        return;
+      }
+
+      UIPerformanceTracker.markAction();
+
+      final operations =
+          _generateHeavyOperations(cycleCount, batchOperationsCount);
+      _performUnifiedBatch(operations);
+
+      if (cycleCount % 2 == 0) {
+        _performHeavyAnimations(heavyAnimationCount);
+      }
+
+      if (cycleCount % 5 == 0) {
+        _performCascadeOperations(cascadeOperationsCount);
+      }
+
+      frameCounter.value = frameCounter.value + 1;
+      cycleCount++;
+    });
+  }
+
+  List<UIOperation> _generateHeavyOperations(int cycleCount, int totalOps) {
+    final operations = <UIOperation>[];
+    final random = math.Random(42 + cycleCount);
+
+    for (int i = 0; i < totalOps; i++) {
+      final type = UIOperationType.values[i % 5];
+      final movieCount = math.min(20, movies.length);
+      final selectedMovies = <int>[];
+
+      for (int j = 0; j < movieCount; j++) {
+        selectedMovies.add(movies[random.nextInt(movies.length)].id);
+      }
+
+      operations.add(UIOperation(type, selectedMovies));
+    }
+
+    return operations;
+  }
+
+  void _performUnifiedBatch(List<UIOperation> operations) {
+    final newStates = Map<int, UIElementState>.from(uiElementStates);
+
+    for (final operation in operations) {
+      for (final movieId in operation.movieIds) {
+        final currentState = newStates[movieId];
+        if (currentState != null) {
+          newStates[movieId] = _applyHeavyOperation(currentState, operation);
+        }
+      }
+    }
+
+    uiElementStates.value = newStates;
+  }
+
+  UIElementState _applyHeavyOperation(
+      UIElementState state, UIOperation operation) {
+    double heavyCalculation = 0;
+    for (int i = 0; i < 50; i++) {
+      heavyCalculation += math.sin(state.movieId * i / 100.0) *
+          math.cos(i / 10.0) *
+          math.tan(i / 20.0);
+    }
+
+    switch (operation.type) {
+      case UIOperationType.like:
+        return state.copyWith(
+          isLiked: !state.isLiked,
+          popularityScore: (state.popularityScore +
+                  (state.isLiked ? -1 : 1) +
+                  heavyCalculation.toInt())
+              .clamp(0, 100),
+        );
+      case UIOperationType.progress:
+        final newProgress =
+            (state.progress + 0.05 + heavyCalculation * 0.001).clamp(0.0, 1.0);
+        return state.copyWith(
+          progress: newProgress,
+          isWatched: newProgress >= 1.0,
+        );
+      case UIOperationType.rating:
+        return state.copyWith(
+          rating:
+              (state.rating + 0.1 + heavyCalculation * 0.01).clamp(0.0, 10.0),
+          isFeatured: state.rating >= 8.0,
+        );
+      case UIOperationType.download:
+        return state.copyWith(
+          isDownloading: !state.isDownloading,
+          opacity: state.isDownloading ? 1.0 : 0.8,
+        );
+      case UIOperationType.viewCount:
+        final newViewCount =
+            state.viewCount + 1 + heavyCalculation.abs().toInt() % 3;
+        return state.copyWith(
+          viewCount: newViewCount,
+          isHighlighted: newViewCount > 100,
+        );
+      default:
+        return state;
+    }
+  }
+
+  void _performHeavyAnimations(int animationCount) {
+    final animatedMovieIds =
+        _getRandomMovieIds(movies.length, animationCount / movies.length);
+    final newStates = Map<int, UIElementState>.from(uiElementStates);
+
+    for (final movieId in animatedMovieIds.take(animationCount)) {
+      final currentState = newStates[movieId];
+      if (currentState != null) {
+        final newAnimationProgress =
+            (currentState.animationProgress + 0.08) % 1.0;
+
+        double animationCalculation = 0;
+        for (int i = 0; i < 50; i++) {
+          animationCalculation += math.sin(newAnimationProgress * i * math.pi) *
+              math.cos(movieId * i / 200.0) *
+              math.log(i + 1);
+        }
+
+        final newOpacity = 0.4 +
+            (0.6 * (0.5 + 0.5 * math.sin(newAnimationProgress * 2 * math.pi)));
+
+        newStates[movieId] = currentState.copyWith(
+          isAnimating: true,
+          animationProgress: newAnimationProgress,
+          opacity: newOpacity,
+          rating: (currentState.rating + animationCalculation * 0.001)
+              .clamp(0.0, 10.0),
+        );
+      }
+    }
+
+    uiElementStates.value = newStates;
+  }
+
+  void _performCascadeOperations(int cascadeCount) {
+    if (movies.isEmpty) return;
+
+    final targetMovies = movies.take(cascadeCount);
+    final newStates = Map<int, UIElementState>.from(uiElementStates);
+
+    final primaryMovieId = movies[0].id;
+    final primaryState = newStates[primaryMovieId];
+
+    if (primaryState != null) {
+      final newPrimaryState = primaryState.copyWith(
+        isLiked: !primaryState.isLiked,
+        isFeatured: true,
+        popularityScore: 100,
+      );
+      newStates[primaryMovieId] = newPrimaryState;
+
+      for (final movie in targetMovies) {
+        final currentState = newStates[movie.id];
+        if (currentState != null) {
+          double cascadeCalculation = 0;
+          for (int i = 0; i < 20; i++) {
+            cascadeCalculation += math.log(movie.id + i + 1) *
+                math.sqrt(currentState.rating + 1) *
+                (newPrimaryState.isLiked ? 1.1 : 0.9);
+          }
+
+          newStates[movie.id] = currentState.copyWith(
+            isHighlighted: newPrimaryState.isLiked,
+            opacity: newPrimaryState.isLiked ? 1.0 : 0.7,
+            popularityScore:
+                (currentState.popularityScore + cascadeCalculation.toInt())
+                    .clamp(0, 100),
+          );
+        }
+      }
+    }
+
+    uiElementStates.value = newStates;
   }
 
   void executeProcessingCycle(int cycleNumber) {
@@ -272,313 +514,6 @@ class BenchmarkController extends GetxController {
 
     return groups;
   }
-
-  int _getGenreIdForCycle(int cycle) {
-    const genreIds = [28, 35, 18, 27, 10749, 878];
-    return genreIds[cycle % genreIds.length];
-  }
-
-  String _getFilterValue(String criteria, int cycle) {
-    switch (criteria) {
-      case 'genre':
-        return _getGenreForId(_getGenreIdForCycle(cycle));
-      case 'year':
-        return (2000 + (cycle % 25)).toString();
-      case 'rating':
-        return (5.0 + (cycle % 4)).toString();
-      default:
-        return '';
-    }
-  }
-
-  String _getSortType(int cycle) {
-    const types = ['complex_rating', 'weighted_date', 'enhanced_popularity'];
-    return types[cycle % types.length];
-  }
-
-  String _getGenreForId(int genreId) {
-    const genreMap = {
-      28: 'Action',
-      35: 'Comedy',
-      18: 'Drama',
-      27: 'Horror',
-      10749: 'Romance',
-      878: 'Sci-Fi',
-    };
-    return genreMap[genreId] ?? 'Unknown';
-  }
-
-  // S02
-  Future<void> _runMemoryStateHistory() async {
-    const operationInterval = Duration(milliseconds: 50);
-    const complexObjectsPerCycle = 50;
-    const deepCopyOperations = 10;
-    const largeListAllocations = 30;
-    const stringConcatenations = 600;
-    const mapCreations = 15;
-    const stateRetentionPercent = 0.4;
-
-    int cycle = 0;
-    const testDurationMs = 60000;
-    final testStartTime = DateTime.now();
-
-    _scenarioTimer = Timer.periodic(operationInterval, (timer) {
-      if (DateTime.now().difference(testStartTime).inMilliseconds >=
-          testDurationMs) {
-        timer.cancel();
-        _completeTest();
-        return;
-      }
-
-      for (int i = 0; i < deepCopyOperations; i++) {
-        applyFilterConfiguration(
-            _filterTypes[cycle % _filterTypes.length], cycle);
-        _applySortConfiguration(_sortTypes[cycle % _sortTypes.length]);
-        _applyGroupConfiguration(_groupTypes[cycle % _groupTypes.length]);
-        _applyPaginationConfiguration(cycle % 10);
-      }
-
-      _createComplexObjects(complexObjectsPerCycle);
-      _allocateLargeLists(largeListAllocations);
-      _performStringOperations(stringConcatenations);
-      _createLargeMaps(mapCreations);
-
-      if (cycle % 5 == 4) {
-        _cleanupOldStates(stateRetentionPercent);
-      }
-
-      if (cycle % 8 == 7) {
-        undoToStep(math.max(0, currentHistoryIndex.value - 4));
-      }
-
-      cycle++;
-    });
-  }
-
-  // S03
-  // Zastąp metodę _runUiGranularUpdates w BenchmarkController (GetX)
-
-  // S03 - Enhanced UI Rendering Hell
-  // W lib/features/getx_implementation/benchmark/presentation/controllers/benchmark_controller.dart
-// Zastąp CAŁĄ metodę _runUiGranularUpdates + dodaj helper methods:
-
-  // S03 - Fair & Heavy UI Test
-  Future<void> _runUiGranularUpdates() async {
-    // HEAVY parametry - identyczne dla obu
-    const timerInterval = Duration(milliseconds: 8); // 125 FPS attempt
-    const batchOperationsCount = 300; // 300 operacji na cykl
-    const heavyAnimationCount = 200; // 200 animacji na cykl
-    const cascadeOperationsCount = 150; // 150 cascade na cykl
-
-    // Inicjalizacja - identyczna dla obu
-    final initialStates = <int, UIElementState>{};
-    for (final movie in movies) {
-      initialStates[movie.id] = UIElementState(movieId: movie.id);
-    }
-
-    UIPerformanceTracker.markAction();
-    uiElementStates.value = initialStates;
-
-    const testDurationMs = 30000; // 30 sekund
-    final testStartTime = DateTime.now();
-    int cycleCount = 0;
-
-    _scenarioTimer = Timer.periodic(timerInterval, (timer) {
-      if (DateTime.now().difference(testStartTime).inMilliseconds >=
-          testDurationMs) {
-        timer.cancel();
-        _completeTest();
-        return;
-      }
-
-      // JEDEN markAction na cykl - identyczne jak BLoC
-      UIPerformanceTracker.markAction();
-
-      // Identyczne operacje jak BLoC
-      final operations =
-          _generateHeavyOperations(cycleCount, batchOperationsCount);
-      _performUnifiedBatch(operations);
-
-      // Heavy animations - identyczne jak BLoC
-      if (cycleCount % 2 == 0) {
-        _performHeavyAnimations(heavyAnimationCount);
-      }
-
-      // Cascade operations - identyczne jak BLoC
-      if (cycleCount % 5 == 0) {
-        _performCascadeOperations(cascadeOperationsCount);
-      }
-
-      frameCounter.value = frameCounter.value + 1;
-      cycleCount++;
-    });
-  }
-
-  // IDENTYCZNE operacje jak BLoC
-  List<UIOperation> _generateHeavyOperations(int cycleCount, int totalOps) {
-    final operations = <UIOperation>[];
-    final random = math.Random(42 + cycleCount); // Deterministic seed
-
-    for (int i = 0; i < totalOps; i++) {
-      final type = UIOperationType
-          .values[i % 5]; // like, progress, rating, download, viewCount
-      final movieCount =
-          math.min(20, movies.length); // Max 20 filmów na operację
-      final selectedMovies = <int>[];
-
-      for (int j = 0; j < movieCount; j++) {
-        selectedMovies.add(movies[random.nextInt(movies.length)].id);
-      }
-
-      operations.add(UIOperation(type, selectedMovies));
-    }
-
-    return operations;
-  }
-
-  void _performUnifiedBatch(List<UIOperation> operations) {
-    // JEDEN batch update - identyczne jak BLoC emit
-    final newStates = Map<int, UIElementState>.from(uiElementStates);
-
-    for (final operation in operations) {
-      for (final movieId in operation.movieIds) {
-        final currentState = newStates[movieId];
-        if (currentState != null) {
-          newStates[movieId] = _applyHeavyOperation(currentState, operation);
-        }
-      }
-    }
-
-    // JEDEN update na końcu - jak BLoC emit
-    uiElementStates.value = newStates;
-  }
-
-  UIElementState _applyHeavyOperation(
-      UIElementState state, UIOperation operation) {
-    // Heavy obliczenia dla każdej operacji - identyczne jak BLoC
-    double heavyCalculation = 0;
-    for (int i = 0; i < 10; i++) {
-      heavyCalculation +=
-          math.sin(state.movieId * i / 100.0) * math.cos(i / 10.0);
-    }
-
-    switch (operation.type) {
-      case UIOperationType.like:
-        return state.copyWith(
-          isLiked: !state.isLiked,
-          popularityScore: (state.popularityScore +
-                  (state.isLiked ? -1 : 1) +
-                  heavyCalculation.toInt())
-              .clamp(0, 100),
-        );
-      case UIOperationType.progress:
-        final newProgress =
-            (state.progress + 0.05 + heavyCalculation * 0.001).clamp(0.0, 1.0);
-        return state.copyWith(
-          progress: newProgress,
-          isWatched: newProgress >= 1.0,
-        );
-      case UIOperationType.rating:
-        return state.copyWith(
-          rating:
-              (state.rating + 0.1 + heavyCalculation * 0.01).clamp(0.0, 10.0),
-          isFeatured: state.rating >= 8.0,
-        );
-      case UIOperationType.download:
-        return state.copyWith(
-          isDownloading: !state.isDownloading,
-          opacity: state.isDownloading ? 1.0 : 0.8,
-        );
-      case UIOperationType.viewCount:
-        final newViewCount =
-            state.viewCount + 1 + heavyCalculation.abs().toInt() % 3;
-        return state.copyWith(
-          viewCount: newViewCount,
-          isHighlighted: newViewCount > 100,
-        );
-      default:
-        return state;
-    }
-  }
-
-  void _performHeavyAnimations(int animationCount) {
-    final animatedMovieIds =
-        _getRandomMovieIds(movies.length, animationCount / movies.length);
-    final newStates = Map<int, UIElementState>.from(uiElementStates);
-
-    for (final movieId in animatedMovieIds.take(animationCount)) {
-      final currentState = newStates[movieId];
-      if (currentState != null) {
-        // Heavy animation calculations - identyczne jak BLoC
-        final newAnimationProgress =
-            (currentState.animationProgress + 0.08) % 1.0;
-
-        double animationCalculation = 0;
-        for (int i = 0; i < 15; i++) {
-          animationCalculation += math.sin(newAnimationProgress * i * math.pi) *
-              math.cos(movieId * i / 200.0);
-        }
-
-        final newOpacity = 0.4 +
-            (0.6 * (0.5 + 0.5 * math.sin(newAnimationProgress * 2 * math.pi)));
-
-        newStates[movieId] = currentState.copyWith(
-          isAnimating: true,
-          animationProgress: newAnimationProgress,
-          opacity: newOpacity,
-          rating: (currentState.rating + animationCalculation * 0.001)
-              .clamp(0.0, 10.0),
-        );
-      }
-    }
-
-    uiElementStates.value = newStates;
-  }
-
-  void _performCascadeOperations(int cascadeCount) {
-    if (movies.isEmpty) return;
-
-    final targetMovies = movies.take(cascadeCount);
-    final newStates = Map<int, UIElementState>.from(uiElementStates);
-
-    // Primary cascade trigger - identyczne jak BLoC
-    final primaryMovieId = movies[0].id;
-    final primaryState = newStates[primaryMovieId];
-
-    if (primaryState != null) {
-      final newPrimaryState = primaryState.copyWith(
-        isLiked: !primaryState.isLiked,
-        isFeatured: true,
-        popularityScore: 100,
-      );
-      newStates[primaryMovieId] = newPrimaryState;
-
-      // Cascade effect - heavy calculations - identyczne jak BLoC
-      for (final movie in targetMovies) {
-        final currentState = newStates[movie.id];
-        if (currentState != null) {
-          // Heavy cascade calculations
-          double cascadeCalculation = 0;
-          for (int i = 0; i < 20; i++) {
-            cascadeCalculation += math.log(movie.id + i + 1) *
-                math.sqrt(currentState.rating + 1) *
-                (newPrimaryState.isLiked ? 1.1 : 0.9);
-          }
-
-          newStates[movie.id] = currentState.copyWith(
-            isHighlighted: newPrimaryState.isLiked,
-            opacity: newPrimaryState.isLiked ? 1.0 : 0.7,
-            popularityScore:
-                (currentState.popularityScore + cascadeCalculation.toInt())
-                    .clamp(0, 100),
-          );
-        }
-      }
-    }
-
-    uiElementStates.value = newStates;
-  }
-  // Masywne aktualizacje UI - 60% filmów każdy cykl
 
   void _completeTest() {
     endTime = DateTime.now();
@@ -934,6 +869,130 @@ class BenchmarkController extends GetxController {
     }
   }
 
+  List<Movie> _applyFilter(
+      List<Movie> movies, String filterType, dynamic filterValue) {
+    switch (filterType) {
+      case 'genre':
+        final genreName = _genreNames[filterValue % _genreNames.length];
+        return movies
+            .where((movie) =>
+                movie.genreIds.any((id) => _getGenreForId(id) == genreName))
+            .toList();
+      case 'year':
+        final year = 2000 + (filterValue % 25);
+        return movies
+            .where((movie) => movie.releaseDate.startsWith(year.toString()))
+            .toList();
+      case 'rating':
+        final minRating = 5.0 + (filterValue % 4);
+        return movies.where((movie) => movie.voteAverage >= minRating).toList();
+      default:
+        return movies;
+    }
+  }
+
+  void _applySorting(List<Movie> movies, String sortType) {
+    switch (sortType) {
+      case 'rating':
+        movies.sort((a, b) => b.voteAverage.compareTo(a.voteAverage));
+        break;
+      case 'date':
+        movies.sort((a, b) => b.releaseDate.compareTo(a.releaseDate));
+        break;
+      case 'title':
+        movies.sort((a, b) => a.title.compareTo(b.title));
+        break;
+      case 'popularity':
+        movies.sort((a, b) => b.voteAverage.compareTo(a.voteAverage));
+        break;
+    }
+  }
+
+  Map<String, List<Movie>> _applyGrouping(
+      List<Movie> movies, String groupType) {
+    final groups = <String, List<Movie>>{};
+
+    for (final movie in movies) {
+      String key;
+      switch (groupType) {
+        case 'decade':
+          final year = int.tryParse(movie.releaseDate.split('-').first) ?? 2000;
+          key = '${(year ~/ 10) * 10}s';
+          break;
+        case 'genre':
+          key = movie.genreIds.isNotEmpty
+              ? _getGenreForId(movie.genreIds.first)
+              : 'Unknown';
+          break;
+        case 'rating_range':
+          final rating = movie.voteAverage;
+          if (rating >= 8.0)
+            key = 'Excellent (8.0+)';
+          else if (rating >= 6.0)
+            key = 'Good (6.0-7.9)';
+          else if (rating >= 4.0)
+            key = 'Average (4.0-5.9)';
+          else
+            key = 'Poor (<4.0)';
+          break;
+        default:
+          key = 'All';
+      }
+
+      groups.putIfAbsent(key, () => []);
+      groups[key]!.add(movie);
+    }
+
+    return groups;
+  }
+
+  int _getGenreIdForCycle(int cycle) {
+    const genreIds = [28, 35, 18, 27, 10749, 878];
+    return genreIds[cycle % genreIds.length];
+  }
+
+  String _getFilterValue(String criteria, int cycle) {
+    switch (criteria) {
+      case 'genre':
+        return _getGenreForId(_getGenreIdForCycle(cycle));
+      case 'year':
+        return (2000 + (cycle % 25)).toString();
+      case 'rating':
+        return (5.0 + (cycle % 4)).toString();
+      default:
+        return '';
+    }
+  }
+
+  String _getSortType(int cycle) {
+    const types = ['complex_rating', 'weighted_date', 'enhanced_popularity'];
+    return types[cycle % types.length];
+  }
+
+  String _getGenreForId(int genreId) {
+    const genreMap = {
+      28: 'Action',
+      35: 'Comedy',
+      18: 'Drama',
+      27: 'Horror',
+      10749: 'Romance',
+      878: 'Sci-Fi',
+    };
+    return genreMap[genreId] ?? 'Unknown';
+  }
+
+  List<int> _getRandomMovieIds(int totalCount, double percentage) {
+    final count = (totalCount * percentage).round();
+    final movieIds = <int>[];
+
+    for (int i = 0; i < count; i++) {
+      final randomIndex = _random.nextInt(movies.length);
+      movieIds.add(movies[randomIndex].id);
+    }
+
+    return movieIds;
+  }
+
   void updateMovieLikeStatus(List<int> movieIds) {
     const mathIterations = 15;
     final newStates = Map<int, UIElementState>.from(uiElementStates);
@@ -1027,139 +1086,5 @@ class BenchmarkController extends GetxController {
 
     uiElementStates.value = newStates;
     lastUpdatedMovieIds.value = movieIds;
-  }
-
-  void heavySortOperation(int iterations) {
-    UIPerformanceTracker.markAction();
-
-    final sorted = [...movies];
-    sorted.sort((a, b) {
-      double aWeight = a.voteAverage;
-      double bWeight = b.voteAverage;
-
-      for (int k = 0; k < iterations; k++) {
-        aWeight += math.sin(a.id * k / 50.0) * 0.001;
-        bWeight += math.sin(b.id * k / 50.0) * 0.001;
-      }
-
-      return bWeight.compareTo(aWeight);
-    });
-
-    movies.value = sorted;
-    frameCounter.value = frameCounter.value + 1;
-  }
-
-  void heavyFilterOperation(int iterations) {
-    UIPerformanceTracker.markAction();
-
-    final filtered = <Movie>[];
-    for (final movie in movies) {
-      double complexity = 0;
-      for (int i = 0; i < iterations * 5; i++) {
-        complexity += math.cos(movie.id * i / 100.0);
-      }
-
-      if (complexity > -iterations * 2) {
-        filtered.add(movie);
-      }
-    }
-
-    final newProcessingState = processingState.value.copyWith(
-      filteredMovies: filtered,
-      processingStep: processingState.value.processingStep + 1,
-      timestamp: DateTime.now(),
-    );
-
-    processingState.value = newProcessingState;
-    frameCounter.value = frameCounter.value + 1;
-  }
-
-  List<Movie> _applyFilter(
-      List<Movie> movies, String filterType, dynamic filterValue) {
-    switch (filterType) {
-      case 'genre':
-        final genreName = _genreNames[filterValue % _genreNames.length];
-        return movies
-            .where((movie) =>
-                movie.genreIds.any((id) => _getGenreForId(id) == genreName))
-            .toList();
-      case 'year':
-        final year = 2000 + (filterValue % 25);
-        return movies
-            .where((movie) => movie.releaseDate.startsWith(year.toString()))
-            .toList();
-      case 'rating':
-        final minRating = 5.0 + (filterValue % 4);
-        return movies.where((movie) => movie.voteAverage >= minRating).toList();
-      default:
-        return movies;
-    }
-  }
-
-  void _applySorting(List<Movie> movies, String sortType) {
-    switch (sortType) {
-      case 'rating':
-        movies.sort((a, b) => b.voteAverage.compareTo(a.voteAverage));
-        break;
-      case 'date':
-        movies.sort((a, b) => b.releaseDate.compareTo(a.releaseDate));
-        break;
-      case 'title':
-        movies.sort((a, b) => a.title.compareTo(b.title));
-        break;
-      case 'popularity':
-        movies.sort((a, b) => b.voteAverage.compareTo(a.voteAverage));
-        break;
-    }
-  }
-
-  Map<String, List<Movie>> _applyGrouping(
-      List<Movie> movies, String groupType) {
-    final groups = <String, List<Movie>>{};
-
-    for (final movie in movies) {
-      String key;
-      switch (groupType) {
-        case 'decade':
-          final year = int.tryParse(movie.releaseDate.split('-').first) ?? 2000;
-          key = '${(year ~/ 10) * 10}s';
-          break;
-        case 'genre':
-          key = movie.genreIds.isNotEmpty
-              ? _getGenreForId(movie.genreIds.first)
-              : 'Unknown';
-          break;
-        case 'rating_range':
-          final rating = movie.voteAverage;
-          if (rating >= 8.0)
-            key = 'Excellent (8.0+)';
-          else if (rating >= 6.0)
-            key = 'Good (6.0-7.9)';
-          else if (rating >= 4.0)
-            key = 'Average (4.0-5.9)';
-          else
-            key = 'Poor (<4.0)';
-          break;
-        default:
-          key = 'All';
-      }
-
-      groups.putIfAbsent(key, () => []);
-      groups[key]!.add(movie);
-    }
-
-    return groups;
-  }
-
-  List<int> _getRandomMovieIds(int totalCount, double percentage) {
-    final count = (totalCount * percentage).round();
-    final movieIds = <int>[];
-
-    for (int i = 0; i < count; i++) {
-      final randomIndex = _random.nextInt(movies.length);
-      movieIds.add(movies[randomIndex].id);
-    }
-
-    return movieIds;
   }
 }
