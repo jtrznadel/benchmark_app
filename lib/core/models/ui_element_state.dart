@@ -9,6 +9,17 @@ class UIElementState extends Equatable {
   final double rating;
   final DateTime lastUpdated;
 
+  final bool isAnimating;
+  final double animationProgress;
+  final int popularityScore;
+  final bool isFeatured;
+  final bool isWatched;
+  final List<String> tags;
+  final List<String> thumbnails;
+  final Map<String, dynamic> metadata;
+  final double opacity;
+  final bool isHighlighted;
+
   UIElementState({
     required this.movieId,
     this.isLiked = false,
@@ -17,6 +28,16 @@ class UIElementState extends Equatable {
     this.isDownloading = false,
     this.rating = 0.0,
     DateTime? lastUpdated,
+    this.isAnimating = false,
+    this.animationProgress = 0.0,
+    this.popularityScore = 0,
+    this.isFeatured = false,
+    this.isWatched = false,
+    this.tags = const [],
+    this.thumbnails = const [],
+    this.metadata = const {},
+    this.opacity = 1.0,
+    this.isHighlighted = false,
   }) : lastUpdated = lastUpdated ?? DateTime(2024, 1, 1);
 
   UIElementState copyWith({
@@ -27,6 +48,16 @@ class UIElementState extends Equatable {
     bool? isDownloading,
     double? rating,
     DateTime? lastUpdated,
+    bool? isAnimating,
+    double? animationProgress,
+    int? popularityScore,
+    bool? isFeatured,
+    bool? isWatched,
+    List<String>? tags,
+    List<String>? thumbnails,
+    Map<String, dynamic>? metadata,
+    double? opacity,
+    bool? isHighlighted,
   }) {
     return UIElementState(
       movieId: movieId ?? this.movieId,
@@ -36,6 +67,16 @@ class UIElementState extends Equatable {
       isDownloading: isDownloading ?? this.isDownloading,
       rating: rating ?? this.rating,
       lastUpdated: lastUpdated ?? DateTime.now(),
+      isAnimating: isAnimating ?? this.isAnimating,
+      animationProgress: animationProgress ?? this.animationProgress,
+      popularityScore: popularityScore ?? this.popularityScore,
+      isFeatured: isFeatured ?? this.isFeatured,
+      isWatched: isWatched ?? this.isWatched,
+      tags: tags ?? this.tags,
+      thumbnails: thumbnails ?? this.thumbnails,
+      metadata: metadata ?? this.metadata,
+      opacity: opacity ?? this.opacity,
+      isHighlighted: isHighlighted ?? this.isHighlighted,
     );
   }
 
@@ -48,5 +89,15 @@ class UIElementState extends Equatable {
         isDownloading,
         rating,
         lastUpdated,
+        isAnimating,
+        animationProgress,
+        popularityScore,
+        isFeatured,
+        isWatched,
+        tags,
+        thumbnails,
+        metadata,
+        opacity,
+        isHighlighted,
       ];
 }

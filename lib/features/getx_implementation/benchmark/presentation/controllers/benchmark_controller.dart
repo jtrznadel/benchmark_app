@@ -355,27 +355,40 @@ class BenchmarkController extends GetxController {
   }
 
   // S03
-  Future<void> _runUiGranularUpdates() async {
-    const timerInterval = Duration(milliseconds: 8);
-    const likeUpdatePercent = 0.30;
-    const viewUpdatePercent = 0.40;
-    const progressUpdatePercent = 0.20;
-    const downloadUpdatePercent = 0.15;
-    const ratingUpdatePercent = 0.12;
-    const heavySortFrequency = 8;
-    const heavyFilterFrequency = 12;
-    const mathIterations = 15;
+  // Zastąp metodę _runUiGranularUpdates w BenchmarkController (GetX)
 
+  // S03 - Enhanced UI Rendering Hell
+  Future<void> _runUiGranularUpdates() async {
+    // Agresywne parametry dla maksymalnego obciążenia UI
+    const timerInterval = Duration(milliseconds: 8); // 125 FPS attempt
+    const uiUpdatePercent = 0.60; // 60% filmów każdy cykl
+    const animationPercent = 0.40; // 40% filmów animowanych
+    const conditionalUpdatePercent = 0.50; // 50% conditional widgets
+    const batchUpdateFrequency = 3; // Batch co 3 cykle
+    const cascadeUpdateFrequency = 7; // Cascade co 7 cykli
+    const memoryPressureFrequency = 11; // Memory pressure co 11 cykli
+
+    // Inicjalizacja rozszerzonych UI states
     final initialStates = <int, UIElementState>{};
     for (final movie in movies) {
-      initialStates[movie.id] = UIElementState(movieId: movie.id);
+      initialStates[movie.id] = UIElementState(
+        movieId: movie.id,
+        tags: List.generate(20, (i) => 'tag_${movie.id}_$i'),
+        thumbnails: List.generate(10, (i) => 'thumb_${movie.id}_$i'),
+        metadata: {
+          'created': DateTime.now().millisecondsSinceEpoch,
+          'category': 'category_${movie.id % 5}',
+          'data': List.generate(50, (i) => 'data_${movie.id}_$i'),
+        },
+      );
     }
 
     UIPerformanceTracker.markAction();
     uiElementStates.value = initialStates;
 
-    const testDurationMs = 30000;
+    const testDurationMs = 30000; // 30 sekund intensywnego testu
     final testStartTime = DateTime.now();
+    int cycleCount = 0;
 
     _scenarioTimer = Timer.periodic(timerInterval, (timer) {
       if (DateTime.now().difference(testStartTime).inMilliseconds >=
@@ -387,31 +400,299 @@ class BenchmarkController extends GetxController {
 
       UIPerformanceTracker.markAction();
 
-      final movieCount = movies.length;
-      final likeUpdates = _getRandomMovieIds(movieCount, likeUpdatePercent);
-      final viewUpdates = _getRandomMovieIds(movieCount, viewUpdatePercent);
-      final progressUpdates =
-          _getRandomMovieIds(movieCount, progressUpdatePercent);
-      final downloadUpdates =
-          _getRandomMovieIds(movieCount, downloadUpdatePercent);
-      final ratingUpdates = _getRandomMovieIds(movieCount, ratingUpdatePercent);
+      // CORE UPDATES - każdy cykl
+      _performMassiveUIUpdates(uiUpdatePercent);
+      _performAnimationUpdates(animationPercent);
+      _performConditionalUpdates(conditionalUpdatePercent);
 
-      updateMovieLikeStatus(likeUpdates);
-      updateMovieViewCount(viewUpdates);
-      updateMovieProgress(progressUpdates);
-      updateMovieDownloadStatus(downloadUpdates);
-      updateMovieRating(ratingUpdates);
-
-      if (frameCounter.value % heavySortFrequency == 0) {
-        heavySortOperation(mathIterations);
+      // INTENSIVE OPERATIONS - okresowo
+      if (cycleCount % batchUpdateFrequency == 0) {
+        _performBatchUpdate();
       }
 
-      if (frameCounter.value % heavyFilterFrequency == 0) {
-        heavyFilterOperation(mathIterations);
+      if (cycleCount % cascadeUpdateFrequency == 0) {
+        _performCascadingUpdates();
+      }
+
+      if (cycleCount % memoryPressureFrequency == 0) {
+        _performMemoryPressureUpdate();
       }
 
       frameCounter.value = frameCounter.value + 1;
+      cycleCount++;
     });
+  }
+
+  // Masywne aktualizacje UI - 60% filmów każdy cykl
+  void _performMassiveUIUpdates(double percent) {
+    final movieIds = _getRandomMovieIds(movies.length, percent);
+
+    // Micro-updates: każde właściwość osobno dla maksymalnej granularności
+    final likeUpdates = movieIds.take(movieIds.length ~/ 5).toList();
+    final progressUpdates =
+        movieIds.skip(movieIds.length ~/ 5).take(movieIds.length ~/ 5).toList();
+    final ratingUpdates = movieIds
+        .skip((movieIds.length * 2) ~/ 5)
+        .take(movieIds.length ~/ 5)
+        .toList();
+    final downloadUpdates = movieIds
+        .skip((movieIds.length * 3) ~/ 5)
+        .take(movieIds.length ~/ 5)
+        .toList();
+    final viewUpdates = movieIds.skip((movieIds.length * 4) ~/ 5).toList();
+
+    // Każda aktualizacja to osobny state change
+    _updateMovieLikes(likeUpdates);
+    _updateMovieProgress(progressUpdates);
+    _updateMovieRatings(ratingUpdates);
+    _updateMovieDownloads(downloadUpdates);
+    _updateMovieViews(viewUpdates);
+  }
+
+  // Animacje - ciągłe zmiany opacity, progress, colors
+  void _performAnimationUpdates(double percent) {
+    final animatedMovieIds = _getRandomMovieIds(movies.length, percent);
+    final newStates = Map<int, UIElementState>.from(uiElementStates);
+
+    for (final movieId in animatedMovieIds) {
+      final currentState = newStates[movieId];
+      if (currentState != null) {
+        // Ciągłe animacje
+        final newAnimationProgress =
+            (currentState.animationProgress + 0.05) % 1.0;
+        final newOpacity = 0.3 +
+            (0.7 * (0.5 + 0.5 * math.sin(newAnimationProgress * 2 * math.pi)));
+        final newProgress =
+            0.5 + 0.5 * math.sin(newAnimationProgress * 4 * math.pi);
+
+        newStates[movieId] = currentState.copyWith(
+          isAnimating: true,
+          animationProgress: newAnimationProgress,
+          opacity: newOpacity,
+          progress: newProgress,
+          lastUpdated: DateTime.now(),
+        );
+      }
+    }
+
+    uiElementStates.value = newStates;
+  }
+
+  // Conditional rendering updates
+  void _performConditionalUpdates(double percent) {
+    final movieIds = _getRandomMovieIds(movies.length, percent);
+    final newStates = Map<int, UIElementState>.from(uiElementStates);
+
+    for (final movieId in movieIds) {
+      final currentState = newStates[movieId];
+      if (currentState != null) {
+        // Zmiany powodujące dodawanie/usuwanie conditional widgets
+        newStates[movieId] = currentState.copyWith(
+          isFeatured: !currentState.isFeatured,
+          isHighlighted: currentState.popularityScore > 50,
+          isWatched: currentState.progress >= 1.0,
+          popularityScore:
+              (currentState.popularityScore + _random.nextInt(20) - 10)
+                  .clamp(0, 100),
+          lastUpdated: DateTime.now(),
+        );
+      }
+    }
+
+    uiElementStates.value = newStates;
+  }
+
+  // Batch update - masywna operacja na wszystkich filmach
+  void _performBatchUpdate() {
+    UIPerformanceTracker.markAction();
+
+    final newStates = <int, UIElementState>{};
+
+    // Update wszystkich filmów jednocześnie
+    for (final movie in movies) {
+      final currentState = uiElementStates[movie.id];
+      if (currentState != null) {
+        newStates[movie.id] = currentState.copyWith(
+          viewCount: currentState.viewCount + _random.nextInt(5),
+          popularityScore: _random.nextInt(100),
+          tags: List.generate(25, (i) => 'batch_tag_${movie.id}_$i'),
+          metadata: {
+            ...currentState.metadata,
+            'batchUpdate': DateTime.now().millisecondsSinceEpoch,
+            'cycle': frameCounter.value,
+          },
+          lastUpdated: DateTime.now(),
+        );
+      }
+    }
+
+    uiElementStates.value = {...uiElementStates.value, ...newStates};
+  }
+
+  // Cascading updates - update jednego wpływa na inne
+  void _performCascadingUpdates() {
+    UIPerformanceTracker.markAction();
+
+    if (movies.isNotEmpty) {
+      final primaryMovieId = movies[0].id;
+      final primaryState = uiElementStates[primaryMovieId];
+
+      if (primaryState != null) {
+        // Update primary movie
+        final newPrimaryState = primaryState.copyWith(
+          isLiked: !primaryState.isLiked,
+          isFeatured: true,
+          popularityScore: 100,
+        );
+
+        uiElementStates[primaryMovieId] = newPrimaryState;
+
+        // Cascade effect na related movies (first 200)
+        final relatedMovies = movies.skip(1).take(200);
+        final newStates = Map<int, UIElementState>.from(uiElementStates);
+
+        for (final movie in relatedMovies) {
+          final currentState = newStates[movie.id];
+          if (currentState != null) {
+            newStates[movie.id] = currentState.copyWith(
+              isHighlighted: newPrimaryState.isLiked,
+              opacity: newPrimaryState.isLiked ? 1.0 : 0.7,
+              popularityScore: (currentState.popularityScore +
+                      (newPrimaryState.isLiked ? 10 : -5))
+                  .clamp(0, 100),
+            );
+          }
+        }
+
+        uiElementStates.value = newStates;
+
+        // Second cascade wave po 16ms
+        Timer(const Duration(milliseconds: 16), () {
+          final secondWaveMovies = movies.skip(201).take(300);
+          final secondWaveStates =
+              Map<int, UIElementState>.from(uiElementStates);
+
+          for (final movie in secondWaveMovies) {
+            final currentState = secondWaveStates[movie.id];
+            if (currentState != null) {
+              secondWaveStates[movie.id] = currentState.copyWith(
+                isFeatured:
+                    newPrimaryState.isLiked && currentState.rating >= 7.0,
+                isWatched: newPrimaryState.isLiked,
+              );
+            }
+          }
+
+          uiElementStates.value = secondWaveStates;
+        });
+      }
+    }
+  }
+
+  void _performMemoryPressureUpdate() {
+    UIPerformanceTracker.markAction();
+
+    final heavyStates = <int, UIElementState>{};
+    final targetMovies = movies.take(500);
+
+    for (final movie in targetMovies) {
+      final currentState = uiElementStates[movie.id];
+      if (currentState != null) {
+        heavyStates[movie.id] = currentState.copyWith(
+          tags: List.generate(100, (i) => 'heavy_tag_${movie.id}_$i'),
+          thumbnails: List.generate(50, (i) => 'heavy_thumb_${movie.id}_$i'),
+          metadata: {
+            'heavyData': List.generate(200, (i) => 'heavy_data_${movie.id}_$i'),
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+            'cycle': frameCounter.value,
+            'randomData': List.generate(100, (i) => _random.nextDouble()),
+          },
+          isLiked: !currentState.isLiked,
+          progress: _random.nextDouble(),
+          rating: _random.nextDouble() * 10,
+          lastUpdated: DateTime.now(),
+        );
+      }
+    }
+
+    // Batch assignment - może powodować memory spike + UI freeze
+    uiElementStates.value = {...uiElementStates.value, ...heavyStates};
+  }
+
+  // Helper methods dla poszczególnych typów aktualizacji
+  void _updateMovieLikes(List<int> movieIds) {
+    for (final movieId in movieIds) {
+      final currentState = uiElementStates[movieId];
+      if (currentState != null) {
+        uiElementStates[movieId] = currentState.copyWith(
+          isLiked: !currentState.isLiked,
+          popularityScore:
+              currentState.popularityScore + (currentState.isLiked ? -1 : 1),
+          lastUpdated: DateTime.now(),
+        );
+        UIPerformanceTracker.markAction();
+      }
+    }
+  }
+
+  void _updateMovieProgress(List<int> movieIds) {
+    for (final movieId in movieIds) {
+      final currentState = uiElementStates[movieId];
+      if (currentState != null) {
+        final newProgress = (currentState.progress + 0.05).clamp(0.0, 1.0);
+        uiElementStates[movieId] = currentState.copyWith(
+          progress: newProgress,
+          isWatched: newProgress >= 1.0,
+          lastUpdated: DateTime.now(),
+        );
+        UIPerformanceTracker.markAction();
+      }
+    }
+  }
+
+  void _updateMovieRatings(List<int> movieIds) {
+    for (final movieId in movieIds) {
+      final currentState = uiElementStates[movieId];
+      if (currentState != null) {
+        final newRating = (currentState.rating + 0.5).clamp(0.0, 10.0);
+        uiElementStates[movieId] = currentState.copyWith(
+          rating: newRating,
+          isFeatured: newRating >= 8.0,
+          lastUpdated: DateTime.now(),
+        );
+        UIPerformanceTracker.markAction();
+      }
+    }
+  }
+
+  void _updateMovieDownloads(List<int> movieIds) {
+    for (final movieId in movieIds) {
+      final currentState = uiElementStates[movieId];
+      if (currentState != null) {
+        uiElementStates[movieId] = currentState.copyWith(
+          isDownloading: !currentState.isDownloading,
+          opacity: currentState.isDownloading ? 1.0 : 0.8,
+          lastUpdated: DateTime.now(),
+        );
+        UIPerformanceTracker.markAction();
+      }
+    }
+  }
+
+  void _updateMovieViews(List<int> movieIds) {
+    for (final movieId in movieIds) {
+      final currentState = uiElementStates[movieId];
+      if (currentState != null) {
+        final newViewCount = currentState.viewCount + 1;
+        uiElementStates[movieId] = currentState.copyWith(
+          viewCount: newViewCount,
+          popularityScore: (currentState.popularityScore + (newViewCount ~/ 10))
+              .clamp(0, 100),
+          lastUpdated: DateTime.now(),
+        );
+        UIPerformanceTracker.markAction();
+      }
+    }
   }
 
   void _completeTest() {

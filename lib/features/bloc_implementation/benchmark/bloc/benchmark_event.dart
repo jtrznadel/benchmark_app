@@ -157,3 +157,65 @@ class CleanupOldStates extends BenchmarkEvent {
   @override
   List<Object?> get props => [retentionPercent];
 }
+
+class PerformMassiveUIUpdates extends BenchmarkEvent {
+  final double percent;
+  const PerformMassiveUIUpdates(this.percent);
+  @override
+  List<Object?> get props => [percent];
+}
+
+class PerformAnimationUpdates extends BenchmarkEvent {
+  final double percent;
+  const PerformAnimationUpdates(this.percent);
+  @override
+  List<Object?> get props => [percent];
+}
+
+class PerformConditionalUpdates extends BenchmarkEvent {
+  final double percent;
+  const PerformConditionalUpdates(this.percent);
+  @override
+  List<Object?> get props => [percent];
+}
+
+class PerformBatchUpdate extends BenchmarkEvent {}
+
+class PerformCascadingUpdates extends BenchmarkEvent {}
+
+class PerformMemoryPressureUpdate extends BenchmarkEvent {}
+
+class UpdateMovieLikes extends BenchmarkEvent {
+  final List<int> movieIds;
+  const UpdateMovieLikes(this.movieIds);
+  @override
+  List<Object?> get props => [movieIds];
+}
+
+class UpdateMovieProgressBatch extends BenchmarkEvent {
+  final List<int> movieIds;
+  const UpdateMovieProgressBatch(this.movieIds);
+  @override
+  List<Object?> get props => [movieIds];
+}
+
+class UpdateMovieRatingsBatch extends BenchmarkEvent {
+  final List<int> movieIds;
+  const UpdateMovieRatingsBatch(this.movieIds);
+  @override
+  List<Object?> get props => [movieIds];
+}
+
+class UpdateMovieDownloadsBatch extends BenchmarkEvent {
+  final List<int> movieIds;
+  const UpdateMovieDownloadsBatch(this.movieIds);
+  @override
+  List<Object?> get props => [movieIds];
+}
+
+class UpdateMovieViewsBatch extends BenchmarkEvent {
+  final List<int> movieIds;
+  const UpdateMovieViewsBatch(this.movieIds);
+  @override
+  List<Object?> get props => [movieIds];
+}
