@@ -19,8 +19,6 @@ class MovieGridItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ZMIANA - proste counting
-
     return Card(
       child: InkWell(
         onTap: onTap,

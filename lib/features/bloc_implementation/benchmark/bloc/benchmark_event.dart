@@ -11,35 +11,25 @@ abstract class BenchmarkEvent extends Equatable {
 class StartBenchmark extends BenchmarkEvent {
   final ScenarioType scenarioType;
   final int dataSize;
-  final TestStressLevel? stressLevel; // DODANE
 
   const StartBenchmark({
     required this.scenarioType,
     required this.dataSize,
-    this.stressLevel, // DODANE
   });
 
   @override
-  List<Object?> get props => [scenarioType, dataSize, stressLevel]; // ZMIENIONE
+  List<Object?> get props => [scenarioType, dataSize];
 }
 
-// S01 - CPU Processing Pipeline Events
-class ProcessMoviesByGenre extends BenchmarkEvent {
-  final String genre;
-  const ProcessMoviesByGenre(this.genre);
+// S01
+class ExecuteProcessingCycle extends BenchmarkEvent {
+  final int cycleNumber;
+  const ExecuteProcessingCycle(this.cycleNumber);
   @override
-  List<Object?> get props => [genre];
+  List<Object?> get props => [cycleNumber];
 }
 
-class CalculateAverageRating extends BenchmarkEvent {}
-
-class SortMoviesByMetric extends BenchmarkEvent {}
-
-class GroupMoviesByDecade extends BenchmarkEvent {}
-
-class UpdateFinalProcessingState extends BenchmarkEvent {}
-
-// S02 - Memory State History Events
+// S02
 class ApplyFilterConfiguration extends BenchmarkEvent {
   final String filterType;
   final dynamic filterValue;
@@ -79,7 +69,7 @@ class UndoToStep extends BenchmarkEvent {
   List<Object?> get props => [stepNumber];
 }
 
-// S03 - UI Updates Events
+// S03
 class UpdateMovieLikeStatus extends BenchmarkEvent {
   final List<int> movieIds;
   const UpdateMovieLikeStatus(this.movieIds);
@@ -116,7 +106,6 @@ class UpdateMovieRating extends BenchmarkEvent {
 }
 
 class BenchmarkCompleted extends BenchmarkEvent {}
-// Na końcu pliku dodaj:
 
 class HeavySortOperation extends BenchmarkEvent {
   final int iterations;
@@ -134,9 +123,6 @@ class HeavyFilterOperation extends BenchmarkEvent {
 
 class IncrementFrameCounter extends BenchmarkEvent {}
 
-// Dodaj te eventy na końcu pliku benchmark_event.dart
-
-// Memory stress events
 class CreateComplexObjects extends BenchmarkEvent {
   final int count;
   const CreateComplexObjects(this.count);

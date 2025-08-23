@@ -8,6 +8,7 @@ import 'package:moviedb_benchmark/core/utils/uip_tracker.dart';
 import 'package:moviedb_benchmark/core/widgets/enhanced_movie_card.dart';
 import 'package:moviedb_benchmark/core/models/ui_element_state.dart';
 import 'package:moviedb_benchmark/core/widgets/processing_info_display.dart';
+import 'package:moviedb_benchmark/core/widgets/cpu_processing_info_display.dart';
 import '../widgets/bloc_benchmark_controls.dart';
 import '../../bloc/benchmark_bloc.dart';
 import '../../bloc/benchmark_event.dart';
@@ -16,13 +17,11 @@ import '../../bloc/benchmark_state.dart';
 class BlocBenchmarkPage extends StatefulWidget {
   final ScenarioType scenarioType;
   final int dataSize;
-  final TestStressLevel? stressLevel;
 
   const BlocBenchmarkPage({
     super.key,
     required this.scenarioType,
     required this.dataSize,
-    this.stressLevel, // DODANE
   });
 
   @override
@@ -38,7 +37,6 @@ class _BlocBenchmarkPageState extends State<BlocBenchmarkPage> {
       )..add(StartBenchmark(
           scenarioType: widget.scenarioType,
           dataSize: widget.dataSize,
-          stressLevel: widget.stressLevel, // DODANE
         )),
       child: _BlocBenchmarkPageContent(
         scenarioType: widget.scenarioType,
@@ -81,6 +79,7 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
       appBar: AppBar(
         title: Text('BLoC: ${_getScenarioName(widget.scenarioType)}'),
         backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
       ),
       body: BlocBuilder<BenchmarkBloc, BenchmarkState>(
         builder: (context, state) {
@@ -125,7 +124,7 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
   Widget _buildScenarioContent(BuildContext context, BenchmarkState state) {
     switch (widget.scenarioType) {
       case ScenarioType.cpuProcessingPipeline:
-        return _buildCpuScenarioContent(state);
+        return _buildCpuProcessingContent(state);
       case ScenarioType.memoryStateHistory:
         return _buildMemoryScenarioContent(state);
       case ScenarioType.uiGranularUpdates:
@@ -133,18 +132,75 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
     }
   }
 
-  Widget _buildCpuScenarioContent(BenchmarkState state) {
+  Widget _buildCpuProcessingContent(BenchmarkState state) {
     return SingleChildScrollView(
       child: Column(
         children: [
-          ProcessingInfoDisplay(
-            processingState: state.processingState,
-            cycleCount: state.currentProcessingCycle,
+          CpuProcessingInfoDisplay(
+            cpuProcessingState: state.cpuProcessingState,
             scenarioName: 'CPU Processing Pipeline',
           ),
-          if (state.processingState.groupedMovies.isNotEmpty)
-            _buildGroupedMoviesList(state.processingState.groupedMovies),
+          const SizedBox(height: 16),
+          _buildProgressIndicator(state),
+          if (state.cpuProcessingState.groupedMovies.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _buildCpuGroupedMoviesList(state.cpuProcessingState.groupedMovies),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildProgressIndicator(BenchmarkState state) {
+    final progress = state.cpuProcessingState.cycleCount / 600.0;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.blue.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Progress: ${(progress * 100).toStringAsFixed(1)}%',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: progress,
+            backgroundColor: Colors.grey[300],
+            valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Cycle ${state.cpuProcessingState.cycleCount} of 600',
+            style: TextStyle(color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCpuGroupedMoviesList(Map<String, List<Movie>> groupedMovies) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      child: ExpansionTile(
+        title: Text('Processing Groups (${groupedMovies.keys.length})'),
+        children: groupedMovies.entries.take(5).map((entry) {
+          return ListTile(
+            dense: true,
+            title: Text(entry.key),
+            subtitle: Text('${entry.value.length} movies'),
+            trailing: Text(entry.value
+                .take(2)
+                .map((m) => m.title.length > 20
+                    ? '${m.title.substring(0, 17)}...'
+                    : m.title)
+                .join(', ')),
+          );
+        }).toList(),
       ),
     );
   }
@@ -182,9 +238,7 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
               Text('Frame: ${state.frameCounter}'),
               Text('Movies: ${state.movies.length}'),
               Text('Updates: ${state.lastUpdatedMovieIds.length}'),
-              // DODANE
-              if (state.stressLevel != null)
-                Text('Level: ${state.stressLevel.toString().split('.').last}'),
+              const Text('Level: Heavy'),
             ],
           ),
         ),
@@ -214,19 +268,6 @@ class _BlocBenchmarkPageContentState extends State<_BlocBenchmarkPageContent> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildGroupedMoviesList(Map<String, List<Movie>> groupedMovies) {
-    return ExpansionTile(
-      title: Text('Grouped Movies (${groupedMovies.keys.length} groups)'),
-      children: groupedMovies.entries.map((entry) {
-        return ListTile(
-          title: Text(entry.key),
-          subtitle: Text('${entry.value.length} movies'),
-          trailing: Text(entry.value.take(3).map((m) => m.title).join(', ')),
-        );
-      }).toList(),
     );
   }
 

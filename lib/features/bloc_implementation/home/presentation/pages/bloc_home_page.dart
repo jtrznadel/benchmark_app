@@ -16,6 +16,7 @@ class BlocHomePage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('MovieDB Benchmark - BLoC'),
         backgroundColor: Colors.blue,
+        foregroundColor: Colors.white,
       ),
       body: BlocBuilder<HomeBloc, HomeState>(
         builder: (context, state) {
@@ -33,15 +34,11 @@ class BlocHomePage extends StatelessWidget {
                   child: BlocScenarioSelector(
                     selectedScenario: state.selectedScenario,
                     dataSize: state.dataSize,
-                    selectedStressLevel: state.selectedStressLevel,
-                    onScenarioSelected: (scenario, size,
-                        {TestStressLevel? stressLevel}) {
-                      // ZMIENIONE sygnaturę
+                    onScenarioSelected: (scenario, size) {
                       context.read<HomeBloc>().add(
                             SelectScenario(
                               scenarioType: scenario,
                               dataSize: size,
-                              stressLevel: stressLevel,
                             ),
                           );
                     },
@@ -57,8 +54,6 @@ class BlocHomePage extends StatelessWidget {
                               builder: (context) => BlocBenchmarkPage(
                                 scenarioType: state.selectedScenario!,
                                 dataSize: state.dataSize,
-                                stressLevel:
-                                    state.selectedStressLevel, // DODANE
                               ),
                             ),
                           );
@@ -68,10 +63,13 @@ class BlocHomePage extends StatelessWidget {
                     padding: const EdgeInsets.all(16),
                     backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey[300],
                   ),
-                  child: const Text(
-                    'Start testu',
-                    style: TextStyle(fontSize: 18),
+                  child: Text(
+                    state.selectedScenario != null
+                        ? 'Uruchom ${_getScenarioId(state.selectedScenario!)}'
+                        : 'Wybierz scenariusz',
+                    style: const TextStyle(fontSize: 18),
                   ),
                 ),
               ],
@@ -80,5 +78,16 @@ class BlocHomePage extends StatelessWidget {
         },
       ),
     );
+  }
+
+  String _getScenarioId(ScenarioType type) {
+    switch (type) {
+      case ScenarioType.cpuProcessingPipeline:
+        return 'S01';
+      case ScenarioType.memoryStateHistory:
+        return 'S02';
+      case ScenarioType.uiGranularUpdates:
+        return 'S03';
+    }
   }
 }

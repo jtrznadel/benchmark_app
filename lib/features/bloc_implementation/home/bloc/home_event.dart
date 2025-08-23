@@ -11,14 +11,12 @@ abstract class HomeEvent extends Equatable {
 class SelectScenario extends HomeEvent {
   final ScenarioType scenarioType;
   final int dataSize;
-  final TestStressLevel? stressLevel; // DODANE
 
   const SelectScenario({
     required this.scenarioType,
     required this.dataSize,
-    this.stressLevel, // DODANE
   });
 
   @override
-  List<Object?> get props => [scenarioType, dataSize, stressLevel];
+  List<Object?> get props => [scenarioType, dataSize];
 }

@@ -49,13 +49,13 @@ class BlocBenchmarkControls extends StatelessWidget {
       case ScenarioType.cpuProcessingPipeline:
         return Column(
           children: [
-            Text('Processing Cycle: ${state.currentProcessingCycle}'),
-            Text('Current Step: ${state.processingState.processingStep}/5'),
-            if (state.processingState.currentGenre.isNotEmpty)
-              Text('Genre: ${state.processingState.currentGenre}'),
-            if (state.processingState.calculatedMetrics.isNotEmpty)
+            Text('Cycle: ${state.cpuProcessingState.cycleCount}/600'),
+            Text('Current Step: ${state.cpuProcessingState.processingStep}/5'),
+            if (state.cpuProcessingState.currentGenre.isNotEmpty)
+              Text('Genre: ${state.cpuProcessingState.currentGenre}'),
+            if (state.cpuProcessingState.calculatedMetrics.isNotEmpty)
               Text(
-                  'Avg Rating: ${state.processingState.calculatedMetrics['averageRating']?.toStringAsFixed(2) ?? 'N/A'}'),
+                  'Avg Rating: ${state.cpuProcessingState.calculatedMetrics['averageRating']?.toStringAsFixed(2) ?? 'N/A'}'),
           ],
         );
       case ScenarioType.memoryStateHistory:
@@ -71,10 +71,11 @@ class BlocBenchmarkControls extends StatelessWidget {
       case ScenarioType.uiGranularUpdates:
         return Column(
           children: [
-            Text('Frame: ${state.frameCounter}/1800'),
+            Text('Frame: ${state.frameCounter}/3750 (30s @ 120fps)'),
             Text('UI Elements: ${state.uiElementStates.length}'),
             if (state.lastUpdatedMovieIds.isNotEmpty)
               Text('Last Updated: ${state.lastUpdatedMovieIds.length} items'),
+            const Text('Level: Heavy (Max Performance Test)'),
           ],
         );
     }
@@ -103,9 +104,9 @@ class BlocBenchmarkControls extends StatelessWidget {
           const SizedBox(width: 8),
           ElevatedButton(
             onPressed: () {
-              context
-                  .read<BenchmarkBloc>()
-                  .add(const ApplyFilterConfiguration('genre', 28));
+              context.read<BenchmarkBloc>().add(
+                    const ApplyFilterConfiguration('genre', 28),
+                  );
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
             child: const Text('Manual Filter'),

@@ -27,15 +27,12 @@ class EnhancedMovieCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Movie Poster (never rebuilds)
             _buildMoviePoster(),
             const SizedBox(width: 12),
-            // Movie Details
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Title (never rebuilds)
                   Text(
                     movie.title,
                     style: Theme.of(context).textTheme.titleMedium,
@@ -43,7 +40,6 @@ class EnhancedMovieCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-                  // Interactive elements
                   _buildInteractiveElements(context),
                 ],
               ),
@@ -83,7 +79,6 @@ class EnhancedMovieCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Like Button and View Count Row
         Row(
           children: [
             _buildLikeButton(),
@@ -92,10 +87,8 @@ class EnhancedMovieCard extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        // Progress Bar
         _buildProgressBar(),
         const SizedBox(height: 8),
-        // Download Button and Rating Row
         Row(
           children: [
             _buildDownloadButton(),
@@ -110,7 +103,6 @@ class EnhancedMovieCard extends StatelessWidget {
   Widget _buildLikeButton() {
     return GestureDetector(
       onTap: () {
-        // Oznacz akcję użytkownika dla pomiaru latencji
         UIPerformanceTracker.markAction();
         onLikeTap?.call();
       },
@@ -164,7 +156,6 @@ class EnhancedMovieCard extends StatelessWidget {
   Widget _buildDownloadButton() {
     return GestureDetector(
       onTap: () {
-        // Oznacz akcję użytkownika dla pomiaru latencji
         UIPerformanceTracker.markAction();
         onDownloadTap?.call();
       },

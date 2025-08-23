@@ -1,20 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:moviedb_benchmark/core/utils/enums.dart';
-import 'package:moviedb_benchmark/core/utils/memory_stress_config.dart';
-import 'package:moviedb_benchmark/core/utils/ui_stress_config.dart';
 
 class GetXScenarioSelector extends StatelessWidget {
   final ScenarioType? selectedScenario;
   final int dataSize;
-  final TestStressLevel? selectedStressLevel;
-  final Function(ScenarioType, int, {TestStressLevel? stressLevel})
-      onScenarioSelected; // ZMIENIONE
+  final Function(ScenarioType, int) onScenarioSelected;
 
   const GetXScenarioSelector({
     super.key,
     required this.selectedScenario,
     required this.dataSize,
-    required this.selectedStressLevel,
     required this.onScenarioSelected,
   });
 
@@ -25,48 +20,106 @@ class GetXScenarioSelector extends StatelessWidget {
         _buildScenarioTile(
           ScenarioType.cpuProcessingPipeline,
           'CPU Processing Pipeline',
-          'Intensywne przetwarzanie danych filmowych:\n• Filtrowanie według gatunku co 100ms\n• Obliczanie średnich ocen\n• Sortowanie według metryki\n• Grupowanie według dekad\n• 600 cykli przez 60 sekund',
+          'Intensywne przetwarzanie danych filmowych z kompleksowymi operacjami:\n• Filtrowanie według rotujących kryteriów co 100ms\n• Obliczanie złożonych agregacji i metryk matematycznych\n• Sortowanie z wielopoziomowymi porównaniami\n• Grupowanie według różnych kategorii z obliczeniami\n• 600 cykli przez 60 sekund\n\nTest pokazuje różnice w zarządzaniu stanem podczas intensywnych operacji obliczeniowych CPU.',
         ),
         _buildScenarioTile(
           ScenarioType.memoryStateHistory,
           'Memory State History',
-          'Zarządzanie historią stanów z możliwością cofania:\n• Cykliczne operacje filtrowania\n• Tworzenie pełnych kopii stanu\n• Operacje undo/redo\n• 400 operacji przez 60 sekund',
+          'Zarządzanie historią stanów z możliwością cofania operacji:\n• Intensywne cykliczne operacje filtrowania i sortowania\n• Tworzenie pełnych kopii stanu z kompleksnymi strukturami\n• Operacje undo/redo z deep copy obiektów\n• Masywne alokacje pamięci (listy, mapy, obiekty)\n• 60 sekund ciągłych operacji pamięciowych\n\nTest sprawdza efektywność zarządzania pamięcią przy immutable objects vs reactive variables.',
         ),
         _buildScenarioTile(
           ScenarioType.uiGranularUpdates,
           'UI Granular Updates',
-          'Częste aktualizacje elementów interfejsu:\n• Różne poziomy obciążenia UI\n• Aktualizacje like status, progress, ratings\n• Ciężkie operacje sortowania i filtrowania\n• 30 sekund testu',
+          'Częste aktualizacje elementów interfejsu z maksymalnym obciążeniem:\n• Wysokie obciążenie UI (120 FPS, 30-40% aktualizacji)\n• Masywne aktualizacje like status, progress, ratings\n• Ciężkie operacje sortowania i filtrowania w tle\n• Intensywne obliczenia matematyczne przy każdej zmianie\n• 30 sekund nieprzerwanego testu\n\nTest mierzy precyzję przebudowywania widgetów i responsywność UI.',
         ),
         const SizedBox(height: 20),
-        if (selectedScenario == ScenarioType.uiGranularUpdates) ...[
-          const Text('Poziom obciążenia UI:'),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildStressChip(TestStressLevel.light),
-              const SizedBox(width: 10),
-              _buildStressChip(TestStressLevel.medium),
-              const SizedBox(width: 10),
-              _buildStressChip(TestStressLevel.heavy),
-            ],
+        if (selectedScenario == ScenarioType.cpuProcessingPipeline) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.purple.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.purple.withOpacity(0.3)),
+            ),
+            child: const Column(
+              children: [
+                Icon(Icons.info_outline, color: Colors.purple, size: 24),
+                SizedBox(height: 8),
+                Text(
+                  'Scenariusz S01 - Stałe parametry',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Zbiór danych: 1000 filmów\nCykle przetwarzania: 600 (60 sekund)\nInterwał: 100ms między cyklami\nObciążenie: Maksymalne (heavy)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14),
+                ),
+              ],
+            ),
           ),
         ] else if (selectedScenario == ScenarioType.memoryStateHistory) ...[
-          const Text('Poziom obciążenia pamięci:'),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildMemoryStressChip(TestStressLevel.light),
-              const SizedBox(width: 10),
-              _buildMemoryStressChip(TestStressLevel.medium),
-              const SizedBox(width: 10),
-              _buildMemoryStressChip(TestStressLevel.heavy),
-            ],
+          Container(
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.purple.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.purple.withOpacity(0.3)),
+            ),
+            child: const Column(
+              children: [
+                Icon(Icons.memory, color: Colors.purple, size: 24),
+                SizedBox(height: 8),
+                Text(
+                  'Scenariusz S02 - Maksymalne obciążenie pamięci',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Zbiór danych: 1000 filmów\nInterwał operacji: 50ms\nKompleksowe obiekty: 50/cykl\nDuże listy: 30/cykl\nOperacje string: 600/cykl\nRetencja stanów: 40%',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ] else if (selectedScenario == ScenarioType.uiGranularUpdates) ...[
+          Container(
+            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.purple.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.purple.withOpacity(0.3)),
+            ),
+            child: const Column(
+              children: [
+                Icon(Icons.speed, color: Colors.purple, size: 24),
+                SizedBox(height: 8),
+                Text(
+                  'Scenariusz S03 - Maksymalne obciążenie UI',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Zbiór danych: 1000 filmów\nInterwał: 8ms (120 FPS)\nAktualizacje: 30-40% obiektów/cykl\nCiężkie operacje: co 8-12 cykli\nIteracje math: 15/operację',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14),
+                ),
+              ],
+            ),
           ),
         ] else ...[
-          const Text('Wielkość zbioru danych:'),
-          const SizedBox(height: 8),
+          const Text(
+            'Wielkość zbioru danych:',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -82,36 +135,25 @@ class GetXScenarioSelector extends StatelessWidget {
     );
   }
 
-  Widget _buildMemoryStressChip(TestStressLevel level) {
-    final isSelected = selectedStressLevel == level;
-    return ChoiceChip(
-      label: Text(MemoryStressConfig.getLevelLabel(level)),
-      selected: isSelected,
-      selectedColor: Colors.purple.withOpacity(0.3),
-      onSelected: (selected) {
-        if (selected && selectedScenario != null) {
-          onScenarioSelected(selectedScenario!, 1000, stressLevel: level);
-        }
-      },
-    );
-  }
-
   Widget _buildScenarioTile(
       ScenarioType type, String title, String description) {
     final isSelected = selectedScenario == type;
     return Card(
       color: isSelected ? Colors.purple.withOpacity(0.2) : null,
+      elevation: isSelected ? 4 : 1,
       child: ExpansionTile(
         title: Text(
           '${_getScenarioId(type)}: $title',
           style: TextStyle(
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? Colors.purple[700] : null,
           ),
         ),
         subtitle: Text(
           _getShortDescription(type),
           style: TextStyle(
             color: isSelected ? Colors.purple[700] : Colors.grey[600],
+            fontSize: 13,
           ),
         ),
         trailing: isSelected
@@ -125,24 +167,28 @@ class GetXScenarioSelector extends StatelessWidget {
               children: [
                 Text(
                   description,
-                  style: const TextStyle(fontSize: 14),
+                  style: const TextStyle(fontSize: 14, height: 1.4),
                 ),
                 const SizedBox(height: 12),
-                ElevatedButton(
-                  onPressed: () {
-                    if (type == ScenarioType.uiGranularUpdates ||
-                        type == ScenarioType.memoryStateHistory) {
-                      onScenarioSelected(type, 1000,
-                          stressLevel: selectedStressLevel);
-                    } else {
-                      onScenarioSelected(type, dataSize);
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.purple,
-                    foregroundColor: Colors.white,
+                Center(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      if (type == ScenarioType.cpuProcessingPipeline ||
+                          type == ScenarioType.memoryStateHistory ||
+                          type == ScenarioType.uiGranularUpdates) {
+                        onScenarioSelected(type, 1000);
+                      } else {
+                        onScenarioSelected(type, dataSize);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                    ),
+                    child: Text('Wybierz ${_getScenarioId(type)}'),
                   ),
-                  child: Text('Wybierz ${_getScenarioId(type)}'),
                 ),
               ],
             ),
@@ -155,26 +201,17 @@ class GetXScenarioSelector extends StatelessWidget {
   Widget _buildSizeChip(int size) {
     final isSelected = dataSize == size;
     return ChoiceChip(
-      label: Text('$size'),
+      label: Text(
+        '$size',
+        style: TextStyle(
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+        ),
+      ),
       selected: isSelected,
       selectedColor: Colors.purple.withOpacity(0.3),
       onSelected: (selected) {
         if (selected && selectedScenario != null) {
           onScenarioSelected(selectedScenario!, size);
-        }
-      },
-    );
-  }
-
-  Widget _buildStressChip(TestStressLevel level) {
-    final isSelected = selectedStressLevel == level;
-    return ChoiceChip(
-      label: Text(UIStressConfig.getLevelLabel(level)),
-      selected: isSelected,
-      selectedColor: Colors.purple.withOpacity(0.3),
-      onSelected: (selected) {
-        if (selected && selectedScenario != null) {
-          onScenarioSelected(selectedScenario!, 1000, stressLevel: level);
         }
       },
     );
@@ -194,11 +231,11 @@ class GetXScenarioSelector extends StatelessWidget {
   String _getShortDescription(ScenarioType type) {
     switch (type) {
       case ScenarioType.cpuProcessingPipeline:
-        return 'Test obciążenia procesora poprzez state management';
+        return 'Test obciążenia procesora poprzez intensywne operacje state management';
       case ScenarioType.memoryStateHistory:
-        return 'Test zarządzania pamięcią przy immutable objects';
+        return 'Test zarządzania pamięcią przy maksymalnym obciążeniu immutable objects';
       case ScenarioType.uiGranularUpdates:
-        return 'Test precyzji przebudowywania widgetów';
+        return 'Test precyzji przebudowywania widgetów przy wysokiej częstotliwości';
     }
   }
 }

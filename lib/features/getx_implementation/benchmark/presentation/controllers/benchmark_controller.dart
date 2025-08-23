@@ -5,47 +5,42 @@ import 'package:moviedb_benchmark/core/api/tmdb_api__client.dart';
 import 'package:moviedb_benchmark/core/models/movie.dart';
 import 'package:moviedb_benchmark/core/models/processing_state.dart';
 import 'package:moviedb_benchmark/core/models/ui_element_state.dart';
+import 'package:moviedb_benchmark/core/models/cpu_processing_state.dart';
 import 'package:moviedb_benchmark/core/utils/enums.dart';
 import 'package:moviedb_benchmark/core/utils/memory_monitor.dart';
-import 'package:moviedb_benchmark/core/utils/memory_stress_config.dart';
 import 'package:moviedb_benchmark/core/utils/uip_tracker.dart';
-import 'package:moviedb_benchmark/core/utils/ui_stress_config.dart';
 
 class BenchmarkController extends GetxController {
   final TmdbApiClient apiClient = Get.put(TmdbApiClient());
 
-  // Core state
   final status = BenchmarkStatus.initial.obs;
   final scenarioType = ScenarioType.cpuProcessingPipeline.obs;
   final movies = <Movie>[].obs;
   final error = Rx<String?>(null);
   final loadedCount = 0.obs;
 
-  // S01 - CPU Processing specific
+  // S01
+  final cpuProcessingState = CpuProcessingState().obs;
+
+  // S02
   final processingState = ProcessingState().obs;
   final currentProcessingCycle = 0.obs;
   final genreRotation = <String>[].obs;
-
-  // S02 - Memory State History specific
   final stateHistory = <ProcessingState>[].obs;
   final currentHistoryIndex = 0.obs;
   final operationLog = <String>[].obs;
 
-  // S03 - UI Updates specific
+  // S03
   final uiElementStates = <int, UIElementState>{}.obs;
   final frameCounter = 0.obs;
   final lastUpdatedMovieIds = <int>[].obs;
-
-  // DODANE - stress level
-  final stressLevel = Rx<TestStressLevel?>(null);
 
   int dataSize = 0;
   DateTime? startTime;
   DateTime? endTime;
   Timer? _scenarioTimer;
-  final math.Random _random = math.Random(42); // Fixed seed for consistency
+  final math.Random _random = math.Random(42);
 
-  // Predefined configurations
   final List<String> _genreNames = [
     'Action',
     'Comedy',
@@ -65,12 +60,10 @@ class BenchmarkController extends GetxController {
     super.onClose();
   }
 
-  void startBenchmark(ScenarioType scenario, int size,
-      {TestStressLevel? stress}) async {
+  void startBenchmark(ScenarioType scenario, int size) async {
     UIPerformanceTracker.markAction();
     scenarioType.value = scenario;
     dataSize = size;
-    stressLevel.value = stress; // DODANE
     startTime = DateTime.now();
     status.value = BenchmarkStatus.loading;
 
@@ -79,7 +72,6 @@ class BenchmarkController extends GetxController {
     UIPerformanceTracker.startTracking();
 
     try {
-      // Load initial data
       final loadedMovies = await apiClient.loadAllMovies(totalItems: size);
 
       UIPerformanceTracker.markAction();
@@ -111,138 +103,225 @@ class BenchmarkController extends GetxController {
     }
   }
 
-  // S01 - CPU Processing Pipeline Implementation
+  // S01
   Future<void> _runCpuProcessingPipeline() async {
+    int cycle = 0;
+    const maxCycles = 600;
+
     _scenarioTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      if (currentProcessingCycle.value >= 600) {
-        // 60 seconds
+      if (cycle >= maxCycles) {
         timer.cancel();
         _completeTest();
         return;
       }
 
-      final genreIndex = currentProcessingCycle.value % _genreNames.length;
-      _processMoviesByGenre(_genreNames[genreIndex]);
+      executeProcessingCycle(cycle);
+      cycle++;
     });
   }
 
-  void _processMoviesByGenre(String genre) {
+  void executeProcessingCycle(int cycleNumber) {
     UIPerformanceTracker.markAction();
 
-    // Step 1: Filter by genre
-    final filtered = movies
-        .where(
-            (movie) => movie.genreIds.any((id) => _getGenreForId(id) == genre))
-        .toList();
+    if (movies.isEmpty) return;
 
-    final newProcessingState = processingState.value.copyWith(
-      filteredMovies: filtered,
-      currentGenre: genre,
-      processingStep: 1,
-    );
+    final filterCriteria = ['genre', 'year', 'rating'][cycleNumber % 3];
+    final filteredMovies =
+        _performIntensiveFiltering(movies, filterCriteria, cycleNumber);
 
-    processingState.value = newProcessingState;
-    UIPerformanceTracker.markAction();
-    currentProcessingCycle.value = currentProcessingCycle.value + 1;
+    final metrics = _calculateComplexMetrics(filteredMovies);
 
-    // Step 2: Calculate average rating
-    _calculateAverageRating();
-  }
+    final sortedMovies =
+        _performComplexSorting([...filteredMovies], cycleNumber);
 
-  void _calculateAverageRating() {
-    UIPerformanceTracker.markAction();
+    final groupingCriteria =
+        ['decade', 'genre', 'rating_range'][cycleNumber % 3];
+    final groupedMovies =
+        _performComplexGrouping(sortedMovies, groupingCriteria);
 
-    final filtered = processingState.value.filteredMovies;
-    final averageRating = filtered.isEmpty
-        ? 0.0
-        : filtered.map((m) => m.voteAverage).reduce((a, b) => a + b) /
-            filtered.length;
-
-    final metrics =
-        Map<String, double>.from(processingState.value.calculatedMetrics);
-    metrics['averageRating'] = averageRating;
-
-    final newProcessingState = processingState.value.copyWith(
+    cpuProcessingState.value = cpuProcessingState.value.copyWith(
+      rawMovies: movies,
+      filteredMovies: filteredMovies,
+      sortedMovies: sortedMovies,
+      groupedMovies: groupedMovies,
       calculatedMetrics: metrics,
-      processingStep: 2,
-    );
-
-    processingState.value = newProcessingState;
-
-    // Step 3: Sort by metric
-    _sortMoviesByMetric();
-  }
-
-  void _sortMoviesByMetric() {
-    UIPerformanceTracker.markAction();
-
-    final filtered = [...processingState.value.filteredMovies];
-    final averageRating =
-        processingState.value.calculatedMetrics['averageRating'] ?? 0.0;
-
-    filtered.sort((a, b) {
-      final aDiff = (a.voteAverage - averageRating).abs();
-      final bDiff = (b.voteAverage - averageRating).abs();
-      return aDiff.compareTo(bDiff);
-    });
-
-    final newProcessingState = processingState.value.copyWith(
-      sortedMovies: filtered,
-      processingStep: 3,
-    );
-
-    processingState.value = newProcessingState;
-
-    // Step 4: Group by decade
-    _groupMoviesByDecade();
-  }
-
-  void _groupMoviesByDecade() {
-    UIPerformanceTracker.markAction();
-
-    final sorted = processingState.value.sortedMovies;
-    final grouped = <String, List<Movie>>{};
-
-    for (final movie in sorted) {
-      final year = int.tryParse(movie.releaseDate.split('-').first) ?? 2000;
-      final decade = '${(year ~/ 10) * 10}s';
-
-      grouped.putIfAbsent(decade, () => []);
-      grouped[decade]!.add(movie);
-    }
-
-    final newProcessingState = processingState.value.copyWith(
-      groupedMovies: grouped,
-      processingStep: 4,
-    );
-
-    processingState.value = newProcessingState;
-
-    // Step 5: Final update
-    _updateFinalProcessingState();
-  }
-
-  void _updateFinalProcessingState() {
-    UIPerformanceTracker.markAction();
-
-    final newProcessingState = processingState.value.copyWith(
+      currentGenre: _getFilterValue(filterCriteria, cycleNumber),
+      currentSortType: _getSortType(cycleNumber),
+      currentGroupType: groupingCriteria,
       processingStep: 5,
+      cycleCount: cycleNumber,
       timestamp: DateTime.now(),
     );
-
-    processingState.value = newProcessingState;
   }
 
-  // S02 - Memory State History Implementation
+  List<Movie> _performIntensiveFiltering(
+      List<Movie> movies, String criteria, int cycle) {
+    return movies.where((movie) {
+      double complexity = 0;
+      for (int i = 0; i < 50; i++) {
+        complexity += math.sin(movie.id * i * cycle / 100.0) *
+            math.cos(movie.voteAverage * i / 10.0);
+      }
+
+      switch (criteria) {
+        case 'genre':
+          final targetGenreId = _getGenreIdForCycle(cycle);
+          return movie.genreIds.contains(targetGenreId) && complexity > -25;
+        case 'year':
+          final targetYear = 2000 + (cycle % 25);
+          return movie.releaseDate.startsWith(targetYear.toString()) &&
+              complexity > -25;
+        case 'rating':
+          final minRating = 5.0 + (cycle % 4);
+          return movie.voteAverage >= minRating && complexity > -25;
+        default:
+          return complexity > -25;
+      }
+    }).toList();
+  }
+
+  Map<String, double> _calculateComplexMetrics(List<Movie> movies) {
+    if (movies.isEmpty) return {};
+
+    double sum = 0;
+    double sumSquares = 0;
+    double weightedSum = 0;
+
+    for (final movie in movies) {
+      for (int i = 0; i < 20; i++) {
+        final weight = math.exp(movie.voteAverage * i / 100.0);
+        weightedSum += movie.voteAverage * weight;
+        sum += movie.voteAverage;
+        sumSquares += movie.voteAverage * movie.voteAverage;
+      }
+    }
+
+    final mean = sum / (movies.length * 20);
+    final variance = (sumSquares / (movies.length * 20)) - (mean * mean);
+    final weightedMean = weightedSum / (movies.length * 20);
+
+    return {
+      'averageRating': mean,
+      'variance': variance,
+      'weightedAverage': weightedMean,
+      'totalMovies': movies.length.toDouble(),
+      'complexityIndex': weightedSum / 1000,
+    };
+  }
+
+  List<Movie> _performComplexSorting(List<Movie> movies, int cycle) {
+    movies.sort((a, b) {
+      double aWeight = a.voteAverage;
+      double bWeight = b.voteAverage;
+
+      for (int i = 0; i < 15; i++) {
+        aWeight += math.sin(a.id * i * cycle / 200.0) * 0.001;
+        bWeight += math.sin(b.id * i * cycle / 200.0) * 0.001;
+        aWeight *= (1 + math.cos(i * cycle / 100.0) * 0.01);
+        bWeight *= (1 + math.cos(i * cycle / 100.0) * 0.01);
+      }
+
+      return bWeight.compareTo(aWeight);
+    });
+
+    return movies;
+  }
+
+  Map<String, List<Movie>> _performComplexGrouping(
+      List<Movie> movies, String criteria) {
+    final groups = <String, List<Movie>>{};
+
+    for (final movie in movies) {
+      double complexity = 0;
+      for (int i = 0; i < 10; i++) {
+        complexity +=
+            math.log(movie.id + i + 1) * math.sqrt(movie.voteAverage + 1);
+      }
+
+      String key;
+      switch (criteria) {
+        case 'decade':
+          final year = int.tryParse(movie.releaseDate.split('-').first) ?? 2000;
+          final decade = (year ~/ 10) * 10;
+          key = '${decade}s (${complexity.toStringAsFixed(1)})';
+          break;
+        case 'genre':
+          final genreId = movie.genreIds.isNotEmpty ? movie.genreIds.first : 0;
+          final genreName = _getGenreForId(genreId);
+          key = '$genreName (${complexity.toStringAsFixed(1)})';
+          break;
+        case 'rating_range':
+          final rating = movie.voteAverage + (complexity * 0.01);
+          if (rating >= 8.0)
+            key = 'Excellent (8.0+)';
+          else if (rating >= 6.0)
+            key = 'Good (6.0-7.9)';
+          else if (rating >= 4.0)
+            key = 'Average (4.0-5.9)';
+          else
+            key = 'Poor (<4.0)';
+          break;
+        default:
+          key = 'All';
+      }
+
+      groups.putIfAbsent(key, () => []);
+      groups[key]!.add(movie);
+    }
+
+    return groups;
+  }
+
+  int _getGenreIdForCycle(int cycle) {
+    const genreIds = [28, 35, 18, 27, 10749, 878];
+    return genreIds[cycle % genreIds.length];
+  }
+
+  String _getFilterValue(String criteria, int cycle) {
+    switch (criteria) {
+      case 'genre':
+        return _getGenreForId(_getGenreIdForCycle(cycle));
+      case 'year':
+        return (2000 + (cycle % 25)).toString();
+      case 'rating':
+        return (5.0 + (cycle % 4)).toString();
+      default:
+        return '';
+    }
+  }
+
+  String _getSortType(int cycle) {
+    const types = ['complex_rating', 'weighted_date', 'enhanced_popularity'];
+    return types[cycle % types.length];
+  }
+
+  String _getGenreForId(int genreId) {
+    const genreMap = {
+      28: 'Action',
+      35: 'Comedy',
+      18: 'Drama',
+      27: 'Horror',
+      10749: 'Romance',
+      878: 'Sci-Fi',
+    };
+    return genreMap[genreId] ?? 'Unknown';
+  }
+
+  // S02
   Future<void> _runMemoryStateHistory() async {
-    final stress = stressLevel.value ?? TestStressLevel.medium;
-    final config = MemoryStressConfig.getConfig(stress);
+    const operationInterval = Duration(milliseconds: 50);
+    const complexObjectsPerCycle = 50;
+    const deepCopyOperations = 10;
+    const largeListAllocations = 30;
+    const stringConcatenations = 600;
+    const mapCreations = 15;
+    const stateRetentionPercent = 0.4;
 
     int cycle = 0;
-    const testDurationMs = 60000; // 60 sekund
+    const testDurationMs = 60000;
     final testStartTime = DateTime.now();
 
-    _scenarioTimer = Timer.periodic(config.operationInterval, (timer) {
+    _scenarioTimer = Timer.periodic(operationInterval, (timer) {
       if (DateTime.now().difference(testStartTime).inMilliseconds >=
           testDurationMs) {
         timer.cancel();
@@ -250,8 +329,7 @@ class BenchmarkController extends GetxController {
         return;
       }
 
-      // Memory-intensive operations cycle
-      for (int i = 0; i < config.deepCopyOperations; i++) {
+      for (int i = 0; i < deepCopyOperations; i++) {
         applyFilterConfiguration(
             _filterTypes[cycle % _filterTypes.length], cycle);
         _applySortConfiguration(_sortTypes[cycle % _sortTypes.length]);
@@ -259,18 +337,15 @@ class BenchmarkController extends GetxController {
         _applyPaginationConfiguration(cycle % 10);
       }
 
-      // Memory stress operations
-      _createComplexObjects(config.complexObjectsPerCycle);
-      _allocateLargeLists(config.largeListAllocations);
-      _performStringOperations(config.stringConcatenations);
-      _createLargeMaps(config.mapCreations);
+      _createComplexObjects(complexObjectsPerCycle);
+      _allocateLargeLists(largeListAllocations);
+      _performStringOperations(stringConcatenations);
+      _createLargeMaps(mapCreations);
 
-      // Memory cleanup operations (simulate GC pressure)
       if (cycle % 5 == 4) {
-        _cleanupOldStates(config.stateRetentionPercent);
+        _cleanupOldStates(stateRetentionPercent);
       }
 
-      // Backward operations (rollback every 8th cycle)
       if (cycle % 8 == 7) {
         undoToStep(math.max(0, currentHistoryIndex.value - 4));
       }
@@ -279,16 +354,95 @@ class BenchmarkController extends GetxController {
     });
   }
 
+  // S03
+  Future<void> _runUiGranularUpdates() async {
+    const timerInterval = Duration(milliseconds: 8);
+    const likeUpdatePercent = 0.30;
+    const viewUpdatePercent = 0.40;
+    const progressUpdatePercent = 0.20;
+    const downloadUpdatePercent = 0.15;
+    const ratingUpdatePercent = 0.12;
+    const heavySortFrequency = 8;
+    const heavyFilterFrequency = 12;
+    const mathIterations = 15;
+
+    final initialStates = <int, UIElementState>{};
+    for (final movie in movies) {
+      initialStates[movie.id] = UIElementState(movieId: movie.id);
+    }
+
+    UIPerformanceTracker.markAction();
+    uiElementStates.value = initialStates;
+
+    const testDurationMs = 30000;
+    final testStartTime = DateTime.now();
+
+    _scenarioTimer = Timer.periodic(timerInterval, (timer) {
+      if (DateTime.now().difference(testStartTime).inMilliseconds >=
+          testDurationMs) {
+        timer.cancel();
+        _completeTest();
+        return;
+      }
+
+      UIPerformanceTracker.markAction();
+
+      final movieCount = movies.length;
+      final likeUpdates = _getRandomMovieIds(movieCount, likeUpdatePercent);
+      final viewUpdates = _getRandomMovieIds(movieCount, viewUpdatePercent);
+      final progressUpdates =
+          _getRandomMovieIds(movieCount, progressUpdatePercent);
+      final downloadUpdates =
+          _getRandomMovieIds(movieCount, downloadUpdatePercent);
+      final ratingUpdates = _getRandomMovieIds(movieCount, ratingUpdatePercent);
+
+      updateMovieLikeStatus(likeUpdates);
+      updateMovieViewCount(viewUpdates);
+      updateMovieProgress(progressUpdates);
+      updateMovieDownloadStatus(downloadUpdates);
+      updateMovieRating(ratingUpdates);
+
+      if (frameCounter.value % heavySortFrequency == 0) {
+        heavySortOperation(mathIterations);
+      }
+
+      if (frameCounter.value % heavyFilterFrequency == 0) {
+        heavyFilterOperation(mathIterations);
+      }
+
+      frameCounter.value = frameCounter.value + 1;
+    });
+  }
+
+  void _completeTest() {
+    endTime = DateTime.now();
+    UIPerformanceTracker.markAction();
+    status.value = BenchmarkStatus.completed;
+    _completeTestWithReports();
+  }
+
+  void _completeTestWithReports() {
+    _scenarioTimer?.cancel();
+    MemoryMonitor.stopMonitoring();
+    UIPerformanceTracker.stopTracking();
+
+    final memoryReport = MemoryMonitor.generateReport();
+    final uiReport = UIPerformanceTracker.generateReport();
+
+    print('=== GetX Memory Report for ${scenarioType.value} ===');
+    print(memoryReport.toFormattedString());
+    print('=== GetX UI Performance Report for ${scenarioType.value} ===');
+    print(uiReport.toFormattedString());
+  }
+
   void _createComplexObjects(int count) {
     UIPerformanceTracker.markAction();
 
-    // Create complex nested objects to stress memory allocation
     final complexData = <String, dynamic>{};
     for (int i = 0; i < count; i++) {
       final movieCopy = movies.isNotEmpty ? movies[i % movies.length] : null;
 
       if (movieCopy != null) {
-        // Create deep copies with additional data
         complexData['object_$i'] = {
           'movie': movieCopy,
           'metadata': _createMetadata(i),
@@ -325,7 +479,6 @@ class BenchmarkController extends GetxController {
   void _allocateLargeLists(int count) {
     UIPerformanceTracker.markAction();
 
-    // Allocate large lists to stress memory
     final largeLists = <List<dynamic>>[];
     for (int i = 0; i < count; i++) {
       final largeList = List.generate(
@@ -364,7 +517,6 @@ class BenchmarkController extends GetxController {
   void _performStringOperations(int count) {
     UIPerformanceTracker.markAction();
 
-    // Perform memory-intensive string operations
     String result = '';
     for (int i = 0; i < count; i++) {
       result += 'String operation $i with movie data: ';
@@ -402,7 +554,6 @@ class BenchmarkController extends GetxController {
   void _createLargeMaps(int count) {
     UIPerformanceTracker.markAction();
 
-    // Create large maps to stress memory allocation
     final largeMaps = <Map<String, dynamic>>[];
     for (int i = 0; i < count; i++) {
       final largeMap = <String, dynamic>{};
@@ -441,7 +592,6 @@ class BenchmarkController extends GetxController {
   void _cleanupOldStates(double retentionPercent) {
     UIPerformanceTracker.markAction();
 
-    // Clean up old states to simulate memory management
     final currentHistory = stateHistory.value;
     final retainCount = (currentHistory.length * retentionPercent).round();
     final newHistory = currentHistory.length > retainCount
@@ -461,7 +611,6 @@ class BenchmarkController extends GetxController {
     operationLog.value = newLog;
   }
 
-// Helper methods for complex object creation:
   Map<String, dynamic> _createMetadata(int index) {
     return {
       'id': index,
@@ -619,68 +768,101 @@ class BenchmarkController extends GetxController {
     }
   }
 
-  // S03 - UI Granular Updates Implementation - ZMIENIONE
-  Future<void> _runUiGranularUpdates() async {
-    final stress = stressLevel.value ?? TestStressLevel.medium;
-    final config = UIStressConfig.getConfig(stress);
+  void updateMovieLikeStatus(List<int> movieIds) {
+    const mathIterations = 15;
+    final newStates = Map<int, UIElementState>.from(uiElementStates);
 
-    // Initialize UI states for all movies
-    final initialStates = <int, UIElementState>{};
-    for (final movie in movies) {
-      initialStates[movie.id] = UIElementState(movieId: movie.id);
+    for (final movieId in movieIds) {
+      final currentState = newStates[movieId];
+      if (currentState != null) {
+        double lightCalculation = 0;
+        for (int i = 0; i < mathIterations; i++) {
+          lightCalculation += math.sin(movieId * i / 100.0);
+        }
+
+        newStates[movieId] = currentState.copyWith(
+          isLiked: !currentState.isLiked,
+          rating:
+              (currentState.rating + lightCalculation * 0.01).clamp(0.0, 10.0),
+          lastUpdated: DateTime.now(),
+        );
+      }
     }
 
-    UIPerformanceTracker.markAction();
-    uiElementStates.value = initialStates;
-
-    // ZMIENIONE - użyj czasu zamiast frameCounter
-    const testDurationMs = 30000; // 30 sekund
-    final testStartTime = DateTime.now();
-
-    _scenarioTimer = Timer.periodic(config.timerInterval, (timer) {
-      // ZMIENIONE - sprawdź czas zamiast frameCounter
-      if (DateTime.now().difference(testStartTime).inMilliseconds >=
-          testDurationMs) {
-        timer.cancel();
-        _completeTest();
-        return;
-      }
-
-      // DODANE - jeden markAction na początku iteracji
-      UIPerformanceTracker.markAction();
-
-      final movieCount = movies.length;
-      final likeUpdates =
-          _getRandomMovieIds(movieCount, config.likeUpdatePercent);
-      final viewUpdates =
-          _getRandomMovieIds(movieCount, config.viewUpdatePercent);
-      final progressUpdates =
-          _getRandomMovieIds(movieCount, config.progressUpdatePercent);
-      final downloadUpdates =
-          _getRandomMovieIds(movieCount, config.downloadUpdatePercent);
-      final ratingUpdates =
-          _getRandomMovieIds(movieCount, config.ratingUpdatePercent);
-
-      updateMovieLikeStatus(likeUpdates);
-      updateMovieViewCount(viewUpdates);
-      updateMovieProgress(progressUpdates);
-      updateMovieDownloadStatus(downloadUpdates);
-      updateMovieRating(ratingUpdates);
-
-      if (frameCounter.value % config.heavySortFrequency == 0) {
-        heavySortOperation(config.mathIterations);
-      }
-
-      if (frameCounter.value % config.heavyFilterFrequency == 0) {
-        heavyFilterOperation(config.mathIterations);
-      }
-
-      // DODANE - increment frameCounter raz na iterację
-      frameCounter.value = frameCounter.value + 1;
-    });
+    uiElementStates.value = newStates;
+    lastUpdatedMovieIds.value = movieIds;
   }
 
-  // DODANE - Heavy operations dla GetX
+  void updateMovieViewCount(List<int> movieIds) {
+    final newStates = Map<int, UIElementState>.from(uiElementStates);
+
+    for (final movieId in movieIds) {
+      final currentState = newStates[movieId];
+      if (currentState != null) {
+        newStates[movieId] = currentState.copyWith(
+          viewCount: currentState.viewCount + 1,
+          lastUpdated: DateTime.now(),
+        );
+      }
+    }
+
+    uiElementStates.value = newStates;
+    lastUpdatedMovieIds.value = movieIds;
+  }
+
+  void updateMovieProgress(List<int> movieIds) {
+    final newStates = Map<int, UIElementState>.from(uiElementStates);
+
+    for (final movieId in movieIds) {
+      final currentState = newStates[movieId];
+      if (currentState != null) {
+        final newProgress = (currentState.progress + 0.05).clamp(0.0, 1.0);
+        newStates[movieId] = currentState.copyWith(
+          progress: newProgress,
+          lastUpdated: DateTime.now(),
+        );
+      }
+    }
+
+    uiElementStates.value = newStates;
+    lastUpdatedMovieIds.value = movieIds;
+  }
+
+  void updateMovieDownloadStatus(List<int> movieIds) {
+    final newStates = Map<int, UIElementState>.from(uiElementStates);
+
+    for (final movieId in movieIds) {
+      final currentState = newStates[movieId];
+      if (currentState != null) {
+        newStates[movieId] = currentState.copyWith(
+          isDownloading: !currentState.isDownloading,
+          lastUpdated: DateTime.now(),
+        );
+      }
+    }
+
+    uiElementStates.value = newStates;
+    lastUpdatedMovieIds.value = movieIds;
+  }
+
+  void updateMovieRating(List<int> movieIds) {
+    final newStates = Map<int, UIElementState>.from(uiElementStates);
+
+    for (final movieId in movieIds) {
+      final currentState = newStates[movieId];
+      if (currentState != null) {
+        final newRating = (currentState.rating + 0.5).clamp(0.0, 10.0);
+        newStates[movieId] = currentState.copyWith(
+          rating: newRating,
+          lastUpdated: DateTime.now(),
+        );
+      }
+    }
+
+    uiElementStates.value = newStates;
+    lastUpdatedMovieIds.value = movieIds;
+  }
+
   void heavySortOperation(int iterations) {
     UIPerformanceTracker.markAction();
 
@@ -726,158 +908,6 @@ class BenchmarkController extends GetxController {
     frameCounter.value = frameCounter.value + 1;
   }
 
-  // ZMIENIONE - wszystkie update metody używają konfiguracji
-  void updateMovieLikeStatus(List<int> movieIds) {
-    final config =
-        UIStressConfig.getConfig(stressLevel.value ?? TestStressLevel.medium);
-    final newStates = Map<int, UIElementState>.from(uiElementStates);
-
-    for (final movieId in movieIds) {
-      final currentState = newStates[movieId];
-      if (currentState != null) {
-        double lightCalculation = 0;
-        for (int i = 0; i < config.mathIterations; i++) {
-          lightCalculation += math.sin(movieId * i / 100.0);
-        }
-
-        newStates[movieId] = currentState.copyWith(
-          isLiked: !currentState.isLiked,
-          rating:
-              (currentState.rating + lightCalculation * 0.01).clamp(0.0, 10.0),
-          lastUpdated: DateTime.now(),
-        );
-      }
-    }
-
-    uiElementStates.value = newStates;
-
-    lastUpdatedMovieIds.value = movieIds;
-  }
-
-  void updateMovieViewCount(List<int> movieIds) {
-    final config =
-        UIStressConfig.getConfig(stressLevel.value ?? TestStressLevel.medium);
-    final newStates = Map<int, UIElementState>.from(uiElementStates);
-
-    for (final movieId in movieIds) {
-      final currentState = newStates[movieId];
-      if (currentState != null) {
-        double calculation = 0;
-        for (int i = 0; i < config.mathIterations; i++) {
-          calculation += math.cos(movieId * i / 80.0);
-        }
-
-        newStates[movieId] = currentState.copyWith(
-          viewCount: currentState.viewCount + 1,
-          lastUpdated: DateTime.now(),
-        );
-      }
-    }
-
-    uiElementStates.value = newStates;
-
-    lastUpdatedMovieIds.value = movieIds;
-  }
-
-  void updateMovieProgress(List<int> movieIds) {
-    final config =
-        UIStressConfig.getConfig(stressLevel.value ?? TestStressLevel.medium);
-    final newStates = Map<int, UIElementState>.from(uiElementStates);
-
-    for (final movieId in movieIds) {
-      final currentState = newStates[movieId];
-      if (currentState != null) {
-        double calculation = 0;
-        for (int i = 0; i < config.mathIterations; i++) {
-          calculation += math.tan(movieId * i / 120.0);
-        }
-
-        final newProgress = (currentState.progress + 0.05).clamp(0.0, 1.0);
-        newStates[movieId] = currentState.copyWith(
-          progress: newProgress,
-          lastUpdated: DateTime.now(),
-        );
-      }
-    }
-
-    uiElementStates.value = newStates;
-
-    lastUpdatedMovieIds.value = movieIds;
-  }
-
-  void updateMovieDownloadStatus(List<int> movieIds) {
-    final config =
-        UIStressConfig.getConfig(stressLevel.value ?? TestStressLevel.medium);
-    final newStates = Map<int, UIElementState>.from(uiElementStates);
-
-    for (final movieId in movieIds) {
-      final currentState = newStates[movieId];
-      if (currentState != null) {
-        double calculation = 0;
-        for (int i = 0; i < config.mathIterations; i++) {
-          calculation += math.log(movieId + i + 1);
-        }
-
-        newStates[movieId] = currentState.copyWith(
-          isDownloading: !currentState.isDownloading,
-          lastUpdated: DateTime.now(),
-        );
-      }
-    }
-
-    uiElementStates.value = newStates;
-
-    lastUpdatedMovieIds.value = movieIds;
-  }
-
-  void updateMovieRating(List<int> movieIds) {
-    final config =
-        UIStressConfig.getConfig(stressLevel.value ?? TestStressLevel.medium);
-    final newStates = Map<int, UIElementState>.from(uiElementStates);
-
-    for (final movieId in movieIds) {
-      final currentState = newStates[movieId];
-      if (currentState != null) {
-        double calculation = 0;
-        for (int i = 0; i < config.mathIterations; i++) {
-          calculation += math.sqrt(movieId * i + 1);
-        }
-
-        final newRating = (currentState.rating + 0.5).clamp(0.0, 10.0);
-        newStates[movieId] = currentState.copyWith(
-          rating: newRating,
-          lastUpdated: DateTime.now(),
-        );
-      }
-    }
-
-    uiElementStates.value = newStates;
-
-    lastUpdatedMovieIds.value = movieIds;
-  }
-
-  void _completeTest() {
-    endTime = DateTime.now();
-    UIPerformanceTracker.markAction();
-    status.value = BenchmarkStatus.completed;
-    _completeTestWithReports();
-  }
-
-  void _completeTestWithReports() {
-    _scenarioTimer?.cancel();
-    MemoryMonitor.stopMonitoring();
-    UIPerformanceTracker.stopTracking();
-
-    final memoryReport = MemoryMonitor.generateReport();
-    final uiReport = UIPerformanceTracker.generateReport();
-
-    print('=== GetX Memory Report for ${scenarioType.value} ===');
-    print(memoryReport.toFormattedString());
-    print('=== GetX UI Performance Report for ${scenarioType.value} ===');
-    print(uiReport.toFormattedString());
-  }
-
-  // Helper methods - bez zmian
   List<Movie> _applyFilter(
       List<Movie> movies, String filterType, dynamic filterValue) {
     switch (filterType) {
@@ -965,17 +995,5 @@ class BenchmarkController extends GetxController {
     }
 
     return movieIds;
-  }
-
-  String _getGenreForId(int genreId) {
-    const genreMap = {
-      28: 'Action',
-      35: 'Comedy',
-      18: 'Drama',
-      27: 'Horror',
-      10749: 'Romance',
-      878: 'Sci-Fi',
-    };
-    return genreMap[genreId] ?? 'Unknown';
   }
 }

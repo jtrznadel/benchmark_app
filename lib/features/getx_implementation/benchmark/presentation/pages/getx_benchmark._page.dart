@@ -7,19 +7,18 @@ import 'package:moviedb_benchmark/core/utils/uip_tracker.dart';
 import 'package:moviedb_benchmark/core/widgets/enhanced_movie_card.dart';
 import 'package:moviedb_benchmark/core/models/ui_element_state.dart';
 import 'package:moviedb_benchmark/core/widgets/processing_info_display.dart';
+import 'package:moviedb_benchmark/core/widgets/cpu_processing_info_display.dart';
 import '../controllers/benchmark_controller.dart';
 import '../widgets/getx_benchmark_controls.dart';
 
 class GetXBenchmarkPage extends StatefulWidget {
   final ScenarioType scenarioType;
   final int dataSize;
-  final TestStressLevel? stressLevel; // DODANE
 
   const GetXBenchmarkPage({
     super.key,
     required this.scenarioType,
     required this.dataSize,
-    this.stressLevel, // DODANE
   });
 
   @override
@@ -35,9 +34,7 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
     UIPerformanceTracker.startTracking();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // ZMIENIONE - przekaż stressLevel
-      controller.startBenchmark(widget.scenarioType, widget.dataSize,
-          stress: widget.stressLevel);
+      controller.startBenchmark(widget.scenarioType, widget.dataSize);
     });
   }
 
@@ -53,6 +50,7 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
       appBar: AppBar(
         title: Text('GetX: ${_getScenarioName(widget.scenarioType)}'),
         backgroundColor: Colors.purple,
+        foregroundColor: Colors.white,
       ),
       body: Obx(() {
         if (controller.status.value == BenchmarkStatus.loading) {
@@ -96,7 +94,7 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
     return Obx(() {
       switch (widget.scenarioType) {
         case ScenarioType.cpuProcessingPipeline:
-          return _buildCpuScenarioContent();
+          return _buildCpuProcessingContent();
         case ScenarioType.memoryStateHistory:
           return _buildMemoryScenarioContent();
         case ScenarioType.uiGranularUpdates:
@@ -105,19 +103,75 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
     });
   }
 
-  Widget _buildCpuScenarioContent() {
+  Widget _buildCpuProcessingContent() {
     return SingleChildScrollView(
       child: Column(
         children: [
-          ProcessingInfoDisplay(
-            processingState: controller.processingState.value,
-            cycleCount: controller.currentProcessingCycle.value,
+          CpuProcessingInfoDisplay(
+            cpuProcessingState: controller.cpuProcessingState.value,
             scenarioName: 'CPU Processing Pipeline',
           ),
-          if (controller.processingState.value.groupedMovies.isNotEmpty)
-            _buildGroupedMoviesList(
-                controller.processingState.value.groupedMovies),
+          const SizedBox(height: 16),
+          _buildProgressIndicator(),
+          if (controller.cpuProcessingState.value.groupedMovies.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _buildCpuGroupedMoviesList(
+                controller.cpuProcessingState.value.groupedMovies),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildProgressIndicator() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.purple.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.purple.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Progress: ${(controller.cpuProcessingState.value.cycleCount / 600.0 * 100).toStringAsFixed(1)}%',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: controller.cpuProcessingState.value.cycleCount / 600.0,
+            backgroundColor: Colors.grey[300],
+            valueColor: const AlwaysStoppedAnimation<Color>(Colors.purple),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Cycle ${controller.cpuProcessingState.value.cycleCount} of 600',
+            style: TextStyle(color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCpuGroupedMoviesList(Map<String, List<Movie>> groupedMovies) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      child: ExpansionTile(
+        title: Text('Processing Groups (${groupedMovies.keys.length})'),
+        children: groupedMovies.entries.take(5).map((entry) {
+          return ListTile(
+            dense: true,
+            title: Text(entry.key),
+            subtitle: Text('${entry.value.length} movies'),
+            trailing: Text(entry.value
+                .take(2)
+                .map((m) => m.title.length > 20
+                    ? '${m.title.substring(0, 17)}...'
+                    : m.title)
+                .join(', ')),
+          );
+        }).toList(),
       ),
     );
   }
@@ -155,9 +209,7 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
               Text('Frame: ${controller.frameCounter.value}'),
               Text('Movies: ${controller.movies.length}'),
               Text('Updates: ${controller.lastUpdatedMovieIds.length}'),
-              // DODANE - pokaż poziom stresu
-              if (widget.stressLevel != null)
-                Text('Level: ${widget.stressLevel.toString().split('.').last}'),
+              const Text('Level: Heavy'),
             ],
           ),
         ),
@@ -185,19 +237,6 @@ class _GetXBenchmarkPageState extends State<GetXBenchmarkPage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildGroupedMoviesList(Map<String, List<Movie>> groupedMovies) {
-    return ExpansionTile(
-      title: Text('Grouped Movies (${groupedMovies.keys.length} groups)'),
-      children: groupedMovies.entries.map((entry) {
-        return ListTile(
-          title: Text(entry.key),
-          subtitle: Text('${entry.value.length} movies'),
-          trailing: Text(entry.value.take(3).map((m) => m.title).join(', ')),
-        );
-      }).toList(),
     );
   }
 

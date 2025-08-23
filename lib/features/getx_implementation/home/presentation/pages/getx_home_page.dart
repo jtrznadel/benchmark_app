@@ -18,6 +18,7 @@ class GetXHomePage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('MovieDB Benchmark - GetX'),
         backgroundColor: Colors.purple,
+        foregroundColor: Colors.white,
       ),
       body: Obx(() => Padding(
             padding: const EdgeInsets.all(16.0),
@@ -33,13 +34,8 @@ class GetXHomePage extends StatelessWidget {
                   child: GetXScenarioSelector(
                     selectedScenario: homeController.selectedScenario.value,
                     dataSize: homeController.dataSize.value,
-                    selectedStressLevel:
-                        homeController.selectedStressLevel.value,
-                    onScenarioSelected: (scenario, size,
-                        {TestStressLevel? stressLevel}) {
-                      // ZMIENIONE sygnaturę
-                      homeController.selectScenario(scenario, size,
-                          stressLevel: stressLevel);
+                    onScenarioSelected: (scenario, size) {
+                      homeController.selectScenario(scenario, size);
                     },
                   ),
                 ),
@@ -51,8 +47,6 @@ class GetXHomePage extends StatelessWidget {
                                 scenarioType:
                                     homeController.selectedScenario.value!,
                                 dataSize: homeController.dataSize.value,
-                                stressLevel: homeController
-                                    .selectedStressLevel.value, // DODANE
                               ));
                         }
                       : null,
@@ -60,15 +54,29 @@ class GetXHomePage extends StatelessWidget {
                     padding: const EdgeInsets.all(16),
                     backgroundColor: Colors.purple,
                     foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey[300],
                   ),
-                  child: const Text(
-                    'Start testu',
-                    style: TextStyle(fontSize: 18),
+                  child: Text(
+                    homeController.selectedScenario.value != null
+                        ? 'Uruchom ${_getScenarioId(homeController.selectedScenario.value!)}'
+                        : 'Wybierz scenariusz',
+                    style: const TextStyle(fontSize: 18),
                   ),
                 ),
               ],
             ),
           )),
     );
+  }
+
+  String _getScenarioId(ScenarioType type) {
+    switch (type) {
+      case ScenarioType.cpuProcessingPipeline:
+        return 'S01';
+      case ScenarioType.memoryStateHistory:
+        return 'S02';
+      case ScenarioType.uiGranularUpdates:
+        return 'S03';
+    }
   }
 }

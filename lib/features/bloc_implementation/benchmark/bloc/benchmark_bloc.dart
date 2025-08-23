@@ -6,20 +6,18 @@ import 'package:moviedb_benchmark/core/api/tmdb_api__client.dart';
 import 'package:moviedb_benchmark/core/models/movie.dart';
 import 'package:moviedb_benchmark/core/utils/enums.dart';
 import 'package:moviedb_benchmark/core/utils/memory_monitor.dart';
-import 'package:moviedb_benchmark/core/utils/memory_stress_config.dart';
-import 'package:moviedb_benchmark/core/utils/ui_stress_config.dart';
 import 'package:moviedb_benchmark/core/utils/uip_tracker.dart';
 import 'package:moviedb_benchmark/core/models/processing_state.dart';
 import 'package:moviedb_benchmark/core/models/ui_element_state.dart';
+import 'package:moviedb_benchmark/core/models/cpu_processing_state.dart';
 import 'benchmark_event.dart';
 import 'benchmark_state.dart';
 
 class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
   final TmdbApiClient apiClient;
   Timer? _scenarioTimer;
-  final Random _random = Random(42); // Fixed seed for consistency
+  final Random _random = Random(42);
 
-  // Predefined configurations for deterministic testing
   final List<String> _genreNames = [
     'Action',
     'Comedy',
@@ -35,14 +33,10 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
   BenchmarkBloc({required this.apiClient}) : super(BenchmarkState()) {
     on<StartBenchmark>(_onStartBenchmark);
 
-    // S01 - CPU Processing Pipeline
-    on<ProcessMoviesByGenre>(_onProcessMoviesByGenre);
-    on<CalculateAverageRating>(_onCalculateAverageRating);
-    on<SortMoviesByMetric>(_onSortMoviesByMetric);
-    on<GroupMoviesByDecade>(_onGroupMoviesByDecade);
-    on<UpdateFinalProcessingState>(_onUpdateFinalProcessingState);
+    // S01
+    on<ExecuteProcessingCycle>(_onExecuteProcessingCycle);
 
-    // S02 - Memory State History
+    // S02
     on<ApplyFilterConfiguration>(_onApplyFilterConfiguration);
     on<ApplySortConfiguration>(_onApplySortConfiguration);
     on<ApplyGroupConfiguration>(_onApplyGroupConfiguration);
@@ -55,7 +49,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     on<CreateLargeMaps>(_onCreateLargeMaps);
     on<CleanupOldStates>(_onCleanupOldStates);
 
-    // S03 - UI Updates
+    // S03
     on<UpdateMovieLikeStatus>(_onUpdateMovieLikeStatus);
     on<UpdateMovieViewCount>(_onUpdateMovieViewCount);
     on<UpdateMovieProgress>(_onUpdateMovieProgress);
@@ -81,7 +75,6 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       status: BenchmarkStatus.loading,
       scenarioType: event.scenarioType,
       dataSize: event.dataSize,
-      stressLevel: event.stressLevel, // DODANE
       startTime: DateTime.now(),
     ));
 
@@ -89,7 +82,6 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     UIPerformanceTracker.startTracking();
 
     try {
-      // Load initial data
       final movies = await apiClient.loadAllMovies(totalItems: event.dataSize);
 
       emit(state.copyWith(
@@ -119,147 +111,229 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     }
   }
 
-  // S01 - CPU Processing Pipeline Implementation
+  // S01
   Future<void> _runCpuProcessingPipeline() async {
+    int cycle = 0;
+    const maxCycles = 600;
+
     _scenarioTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      if (state.currentProcessingCycle >= 600) {
-        // 60 seconds
+      if (cycle >= maxCycles) {
         timer.cancel();
         add(BenchmarkCompleted());
         return;
       }
 
-      final genreIndex = state.currentProcessingCycle % _genreNames.length;
-      add(ProcessMoviesByGenre(_genreNames[genreIndex]));
+      add(ExecuteProcessingCycle(cycle));
+      cycle++;
     });
   }
 
-  void _onProcessMoviesByGenre(
-      ProcessMoviesByGenre event, Emitter<BenchmarkState> emit) {
+  void _onExecuteProcessingCycle(
+      ExecuteProcessingCycle event, Emitter<BenchmarkState> emit) {
     UIPerformanceTracker.markAction();
 
-    // Step 1: Filter by genre
-    final filtered = state.movies
-        .where((movie) =>
-            movie.genreIds.any((id) => _getGenreForId(id) == event.genre))
-        .toList();
+    final movies = state.movies;
+    if (movies.isEmpty) return;
 
-    final newProcessingState = state.processingState.copyWith(
-      filteredMovies: filtered,
-      currentGenre: event.genre,
-      processingStep: 1,
-    );
+    final filterCriteria = ['genre', 'year', 'rating'][event.cycleNumber % 3];
+    final filteredMovies =
+        _performIntensiveFiltering(movies, filterCriteria, event.cycleNumber);
 
-    emit(state.copyWith(
-      processingState: newProcessingState,
-      currentProcessingCycle: state.currentProcessingCycle + 1,
-    ));
+    final metrics = _calculateComplexMetrics(filteredMovies);
 
-    // Trigger next step
-    add(CalculateAverageRating());
-  }
+    final sortedMovies =
+        _performComplexSorting([...filteredMovies], event.cycleNumber);
 
-  void _onCalculateAverageRating(
-      CalculateAverageRating event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markAction();
+    final groupingCriteria =
+        ['decade', 'genre', 'rating_range'][event.cycleNumber % 3];
+    final groupedMovies =
+        _performComplexGrouping(sortedMovies, groupingCriteria);
 
-    // Step 2: Calculate average rating
-    final filtered = state.processingState.filteredMovies;
-    final averageRating = filtered.isEmpty
-        ? 0.0
-        : filtered.map((m) => m.voteAverage).reduce((a, b) => a + b) /
-            filtered.length;
-
-    final metrics =
-        Map<String, double>.from(state.processingState.calculatedMetrics);
-    metrics['averageRating'] = averageRating;
-
-    final newProcessingState = state.processingState.copyWith(
+    final newCpuState = state.cpuProcessingState.copyWith(
+      rawMovies: movies,
+      filteredMovies: filteredMovies,
+      sortedMovies: sortedMovies,
+      groupedMovies: groupedMovies,
       calculatedMetrics: metrics,
-      processingStep: 2,
-    );
-
-    emit(state.copyWith(processingState: newProcessingState));
-
-    // Trigger next step
-    add(SortMoviesByMetric());
-  }
-
-  void _onSortMoviesByMetric(
-      SortMoviesByMetric event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markAction();
-
-    // Step 3: Sort by calculated metric
-    final filtered = [...state.processingState.filteredMovies];
-    final averageRating =
-        state.processingState.calculatedMetrics['averageRating'] ?? 0.0;
-
-    filtered.sort((a, b) {
-      final aDiff = (a.voteAverage - averageRating).abs();
-      final bDiff = (b.voteAverage - averageRating).abs();
-      return aDiff.compareTo(bDiff);
-    });
-
-    final newProcessingState = state.processingState.copyWith(
-      sortedMovies: filtered,
-      processingStep: 3,
-    );
-
-    emit(state.copyWith(processingState: newProcessingState));
-
-    // Trigger next step
-    add(GroupMoviesByDecade());
-  }
-
-  void _onGroupMoviesByDecade(
-      GroupMoviesByDecade event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markAction();
-
-    // Step 4: Group by decade
-    final sorted = state.processingState.sortedMovies;
-    final grouped = <String, List<Movie>>{};
-
-    for (final movie in sorted) {
-      final year = int.tryParse(movie.releaseDate.split('-').first) ?? 2000;
-      final decade = '${(year ~/ 10) * 10}s';
-
-      grouped.putIfAbsent(decade, () => []);
-      grouped[decade]!.add(movie);
-    }
-
-    final newProcessingState = state.processingState.copyWith(
-      groupedMovies: grouped,
-      processingStep: 4,
-    );
-
-    emit(state.copyWith(processingState: newProcessingState));
-
-    // Trigger final step
-    add(UpdateFinalProcessingState());
-  }
-
-  void _onUpdateFinalProcessingState(
-      UpdateFinalProcessingState event, Emitter<BenchmarkState> emit) {
-    UIPerformanceTracker.markAction();
-
-    final newProcessingState = state.processingState.copyWith(
+      currentGenre: _getFilterValue(filterCriteria, event.cycleNumber),
+      currentSortType: _getSortType(event.cycleNumber),
+      currentGroupType: groupingCriteria,
       processingStep: 5,
+      cycleCount: event.cycleNumber,
       timestamp: DateTime.now(),
     );
 
-    emit(state.copyWith(processingState: newProcessingState));
+    emit(state.copyWith(cpuProcessingState: newCpuState));
   }
 
-  // S02 - Memory State History Implementation
+  List<Movie> _performIntensiveFiltering(
+      List<Movie> movies, String criteria, int cycle) {
+    return movies.where((movie) {
+      double complexity = 0;
+      for (int i = 0; i < 50; i++) {
+        complexity += math.sin(movie.id * i * cycle / 100.0) *
+            math.cos(movie.voteAverage * i / 10.0);
+      }
+
+      switch (criteria) {
+        case 'genre':
+          final targetGenreId = _getGenreIdForCycle(cycle);
+          return movie.genreIds.contains(targetGenreId) && complexity > -25;
+        case 'year':
+          final targetYear = 2000 + (cycle % 25);
+          return movie.releaseDate.startsWith(targetYear.toString()) &&
+              complexity > -25;
+        case 'rating':
+          final minRating = 5.0 + (cycle % 4);
+          return movie.voteAverage >= minRating && complexity > -25;
+        default:
+          return complexity > -25;
+      }
+    }).toList();
+  }
+
+  Map<String, double> _calculateComplexMetrics(List<Movie> movies) {
+    if (movies.isEmpty) return {};
+
+    double sum = 0;
+    double sumSquares = 0;
+    double weightedSum = 0;
+
+    for (final movie in movies) {
+      for (int i = 0; i < 20; i++) {
+        final weight = math.exp(movie.voteAverage * i / 100.0);
+        weightedSum += movie.voteAverage * weight;
+        sum += movie.voteAverage;
+        sumSquares += movie.voteAverage * movie.voteAverage;
+      }
+    }
+
+    final mean = sum / (movies.length * 20);
+    final variance = (sumSquares / (movies.length * 20)) - (mean * mean);
+    final weightedMean = weightedSum / (movies.length * 20);
+
+    return {
+      'averageRating': mean,
+      'variance': variance,
+      'weightedAverage': weightedMean,
+      'totalMovies': movies.length.toDouble(),
+      'complexityIndex': weightedSum / 1000,
+    };
+  }
+
+  List<Movie> _performComplexSorting(List<Movie> movies, int cycle) {
+    movies.sort((a, b) {
+      double aWeight = a.voteAverage;
+      double bWeight = b.voteAverage;
+
+      for (int i = 0; i < 15; i++) {
+        aWeight += math.sin(a.id * i * cycle / 200.0) * 0.001;
+        bWeight += math.sin(b.id * i * cycle / 200.0) * 0.001;
+        aWeight *= (1 + math.cos(i * cycle / 100.0) * 0.01);
+        bWeight *= (1 + math.cos(i * cycle / 100.0) * 0.01);
+      }
+
+      return bWeight.compareTo(aWeight);
+    });
+
+    return movies;
+  }
+
+  Map<String, List<Movie>> _performComplexGrouping(
+      List<Movie> movies, String criteria) {
+    final groups = <String, List<Movie>>{};
+
+    for (final movie in movies) {
+      double complexity = 0;
+      for (int i = 0; i < 10; i++) {
+        complexity +=
+            math.log(movie.id + i + 1) * math.sqrt(movie.voteAverage + 1);
+      }
+
+      String key;
+      switch (criteria) {
+        case 'decade':
+          final year = int.tryParse(movie.releaseDate.split('-').first) ?? 2000;
+          final decade = (year ~/ 10) * 10;
+          key = '${decade}s (${complexity.toStringAsFixed(1)})';
+          break;
+        case 'genre':
+          final genreId = movie.genreIds.isNotEmpty ? movie.genreIds.first : 0;
+          final genreName = _getGenreForId(genreId);
+          key = '$genreName (${complexity.toStringAsFixed(1)})';
+          break;
+        case 'rating_range':
+          final rating = movie.voteAverage + (complexity * 0.01);
+          if (rating >= 8.0)
+            key = 'Excellent (8.0+)';
+          else if (rating >= 6.0)
+            key = 'Good (6.0-7.9)';
+          else if (rating >= 4.0)
+            key = 'Average (4.0-5.9)';
+          else
+            key = 'Poor (<4.0)';
+          break;
+        default:
+          key = 'All';
+      }
+
+      groups.putIfAbsent(key, () => []);
+      groups[key]!.add(movie);
+    }
+
+    return groups;
+  }
+
+  int _getGenreIdForCycle(int cycle) {
+    const genreIds = [28, 35, 18, 27, 10749, 878];
+    return genreIds[cycle % genreIds.length];
+  }
+
+  String _getFilterValue(String criteria, int cycle) {
+    switch (criteria) {
+      case 'genre':
+        return _getGenreForId(_getGenreIdForCycle(cycle));
+      case 'year':
+        return (2000 + (cycle % 25)).toString();
+      case 'rating':
+        return (5.0 + (cycle % 4)).toString();
+      default:
+        return '';
+    }
+  }
+
+  String _getSortType(int cycle) {
+    const types = ['complex_rating', 'weighted_date', 'enhanced_popularity'];
+    return types[cycle % types.length];
+  }
+
+  String _getGenreForId(int genreId) {
+    const genreMap = {
+      28: 'Action',
+      35: 'Comedy',
+      18: 'Drama',
+      27: 'Horror',
+      10749: 'Romance',
+      878: 'Sci-Fi',
+    };
+    return genreMap[genreId] ?? 'Unknown';
+  }
+
+  // S02
   Future<void> _runMemoryStateHistory() async {
-    final stressLevel = state.stressLevel ?? TestStressLevel.medium;
-    final config = MemoryStressConfig.getConfig(stressLevel);
+    const operationInterval = Duration(milliseconds: 50);
+    const complexObjectsPerCycle = 50;
+    const deepCopyOperations = 10;
+    const largeListAllocations = 30;
+    const stringConcatenations = 600;
+    const mapCreations = 15;
+    const stateRetentionPercent = 0.4;
 
     int cycle = 0;
-    const testDurationMs = 60000; // 60 sekund
+    const testDurationMs = 60000;
     final testStartTime = DateTime.now();
 
-    _scenarioTimer = Timer.periodic(config.operationInterval, (timer) {
+    _scenarioTimer = Timer.periodic(operationInterval, (timer) {
       if (DateTime.now().difference(testStartTime).inMilliseconds >=
           testDurationMs) {
         timer.cancel();
@@ -267,8 +341,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
         return;
       }
 
-      // Memory-intensive operations cycle
-      for (int i = 0; i < config.deepCopyOperations; i++) {
+      for (int i = 0; i < deepCopyOperations; i++) {
         add(ApplyFilterConfiguration(
             _filterTypes[cycle % _filterTypes.length], cycle));
         add(ApplySortConfiguration(_sortTypes[cycle % _sortTypes.length]));
@@ -276,18 +349,15 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
         add(ApplyPaginationConfiguration(cycle % 10));
       }
 
-      // Memory stress operations
-      add(CreateComplexObjects(config.complexObjectsPerCycle));
-      add(AllocateLargeLists(config.largeListAllocations));
-      add(PerformStringOperations(config.stringConcatenations));
-      add(CreateLargeMaps(config.mapCreations));
+      add(const CreateComplexObjects(complexObjectsPerCycle));
+      add(const AllocateLargeLists(largeListAllocations));
+      add(const PerformStringOperations(stringConcatenations));
+      add(const CreateLargeMaps(mapCreations));
 
-      // Memory cleanup operations (simulate GC pressure)
       if (cycle % 5 == 4) {
-        add(CleanupOldStates(config.stateRetentionPercent));
+        add(const CleanupOldStates(stateRetentionPercent));
       }
 
-      // Backward operations (rollback every 8th cycle)
       if (cycle % 8 == 7) {
         add(UndoToStep(max(0, state.currentHistoryIndex - 4)));
       }
@@ -300,7 +370,6 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       CreateComplexObjects event, Emitter<BenchmarkState> emit) {
     UIPerformanceTracker.markAction();
 
-    // Create complex nested objects to stress memory allocation
     final complexData = <String, dynamic>{};
     for (int i = 0; i < event.count; i++) {
       final movieCopy = state.movies.isNotEmpty
@@ -308,7 +377,6 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
           : null;
 
       if (movieCopy != null) {
-        // Create deep copies with additional data
         complexData['object_$i'] = {
           'movie': movieCopy,
           'metadata': _createMetadata(i),
@@ -348,7 +416,6 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       AllocateLargeLists event, Emitter<BenchmarkState> emit) {
     UIPerformanceTracker.markAction();
 
-    // Allocate large lists to stress memory
     final largeLists = <List<dynamic>>[];
     for (int i = 0; i < event.count; i++) {
       final largeList = List.generate(
@@ -390,7 +457,6 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       PerformStringOperations event, Emitter<BenchmarkState> emit) {
     UIPerformanceTracker.markAction();
 
-    // Perform memory-intensive string operations
     String result = '';
     for (int i = 0; i < event.count; i++) {
       result += 'String operation $i with movie data: ';
@@ -430,7 +496,6 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
   void _onCreateLargeMaps(CreateLargeMaps event, Emitter<BenchmarkState> emit) {
     UIPerformanceTracker.markAction();
 
-    // Create large maps to stress memory allocation
     final largeMaps = <Map<String, dynamic>>[];
     for (int i = 0; i < event.count; i++) {
       final largeMap = <String, dynamic>{};
@@ -469,7 +534,6 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       CleanupOldStates event, Emitter<BenchmarkState> emit) {
     UIPerformanceTracker.markAction();
 
-    // Clean up old states to simulate memory management
     final currentHistory = state.stateHistory;
     final retainCount =
         (currentHistory.length * event.retentionPercent).round();
@@ -490,7 +554,6 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     ));
   }
 
-// Helper methods for complex object creation:
   Map<String, dynamic> _createMetadata(int index) {
     return {
       'id': index,
@@ -535,7 +598,6 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       ApplyFilterConfiguration event, Emitter<BenchmarkState> emit) {
     UIPerformanceTracker.markAction();
 
-    // Create new complete state for history
     final currentState = state.processingState;
     final newState = ProcessingState(
       rawMovies: state.movies,
@@ -662,13 +724,18 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     }
   }
 
-  // S03 - UI Granular Updates Implementation
-  // ZMIEŃ całą metodę _runUiGranularUpdates:
+  // S03
   Future<void> _runUiGranularUpdates() async {
-    final stressLevel = state.stressLevel ?? TestStressLevel.medium;
-    final config = UIStressConfig.getConfig(stressLevel);
+    const timerInterval = Duration(milliseconds: 8);
+    const likeUpdatePercent = 0.30;
+    const viewUpdatePercent = 0.40;
+    const progressUpdatePercent = 0.20;
+    const downloadUpdatePercent = 0.15;
+    const ratingUpdatePercent = 0.12;
+    const heavySortFrequency = 8;
+    const heavyFilterFrequency = 12;
+    const mathIterations = 15;
 
-    // Initialize UI states for all movies
     final initialStates = <int, UIElementState>{};
     for (final movie in state.movies) {
       initialStates[movie.id] = UIElementState(movieId: movie.id);
@@ -676,12 +743,10 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
 
     emit(state.copyWith(uiElementStates: initialStates));
 
-    // ZMIENIONE - użyj czasu zamiast frameCounter
-    const testDurationMs = 30000; // 30 sekund
+    const testDurationMs = 30000;
     final testStartTime = DateTime.now();
 
-    _scenarioTimer = Timer.periodic(config.timerInterval, (timer) {
-      // ZMIENIONE - sprawdź czas zamiast frameCounter
+    _scenarioTimer = Timer.periodic(timerInterval, (timer) {
       if (DateTime.now().difference(testStartTime).inMilliseconds >=
           testDurationMs) {
         timer.cancel();
@@ -689,20 +754,16 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
         return;
       }
 
-      // DODANE - jeden markAction na początku iteracji
       UIPerformanceTracker.markAction();
 
       final movieCount = state.movies.length;
-      final likeUpdates =
-          _getRandomMovieIds(movieCount, config.likeUpdatePercent);
-      final viewUpdates =
-          _getRandomMovieIds(movieCount, config.viewUpdatePercent);
+      final likeUpdates = _getRandomMovieIds(movieCount, likeUpdatePercent);
+      final viewUpdates = _getRandomMovieIds(movieCount, viewUpdatePercent);
       final progressUpdates =
-          _getRandomMovieIds(movieCount, config.progressUpdatePercent);
+          _getRandomMovieIds(movieCount, progressUpdatePercent);
       final downloadUpdates =
-          _getRandomMovieIds(movieCount, config.downloadUpdatePercent);
-      final ratingUpdates =
-          _getRandomMovieIds(movieCount, config.ratingUpdatePercent);
+          _getRandomMovieIds(movieCount, downloadUpdatePercent);
+      final ratingUpdates = _getRandomMovieIds(movieCount, ratingUpdatePercent);
 
       add(UpdateMovieLikeStatus(likeUpdates));
       add(UpdateMovieViewCount(viewUpdates));
@@ -710,30 +771,28 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       add(UpdateMovieDownloadStatus(downloadUpdates));
       add(UpdateMovieRating(ratingUpdates));
 
-      if (state.frameCounter % config.heavySortFrequency == 0) {
-        add(HeavySortOperation(config.mathIterations));
+      if (state.frameCounter % heavySortFrequency == 0) {
+        add(const HeavySortOperation(mathIterations));
       }
 
-      if (state.frameCounter % config.heavyFilterFrequency == 0) {
-        add(HeavyFilterOperation(config.mathIterations));
+      if (state.frameCounter % heavyFilterFrequency == 0) {
+        add(const HeavyFilterOperation(mathIterations));
       }
 
-      // DODANE - increment frameCounter raz na iterację
       add(IncrementFrameCounter());
     });
   }
 
   void _onUpdateMovieLikeStatus(
       UpdateMovieLikeStatus event, Emitter<BenchmarkState> emit) {
-    final config =
-        UIStressConfig.getConfig(state.stressLevel ?? TestStressLevel.medium);
+    const mathIterations = 15;
     final newStates = Map<int, UIElementState>.from(state.uiElementStates);
 
     for (final movieId in event.movieIds) {
       final currentState = newStates[movieId];
       if (currentState != null) {
         double lightCalculation = 0;
-        for (int i = 0; i < config.mathIterations; i++) {
+        for (int i = 0; i < mathIterations; i++) {
           lightCalculation += math.sin(movieId * i / 100.0);
         }
 
@@ -845,9 +904,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       return bWeight.compareTo(aWeight);
     });
 
-    emit(state.copyWith(
-      movies: sorted,
-    ));
+    emit(state.copyWith(movies: sorted));
   }
 
   void _onHeavyFilterOperation(
@@ -870,9 +927,7 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
       timestamp: DateTime.now(),
     );
 
-    emit(state.copyWith(
-      processingState: newProcessingState,
-    ));
+    emit(state.copyWith(processingState: newProcessingState));
   }
 
   void _onBenchmarkCompleted(
@@ -890,16 +945,14 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     UIPerformanceTracker.stopTracking();
 
     final memoryReport = MemoryMonitor.generateReport();
-    final uiReport = UIPerformanceTracker.generateReport(); // ZMIENIONE
+    final uiReport = UIPerformanceTracker.generateReport();
 
     print('=== BLoC Memory Report for ${state.scenarioType} ===');
     print(memoryReport.toFormattedString());
-    print(
-        '=== BLoC UI Performance Report for ${state.scenarioType} ==='); // ZMIENIONE
-    print(uiReport.toFormattedString()); // ZMIENIONE
+    print('=== BLoC UI Performance Report for ${state.scenarioType} ===');
+    print(uiReport.toFormattedString());
   }
 
-  // Helper methods
   List<Movie> _applyFilter(
       List<Movie> movies, String filterType, dynamic filterValue) {
     switch (filterType) {
@@ -987,19 +1040,6 @@ class BenchmarkBloc extends Bloc<BenchmarkEvent, BenchmarkState> {
     }
 
     return movieIds;
-  }
-
-  String _getGenreForId(int genreId) {
-    // Simplified genre mapping
-    const genreMap = {
-      28: 'Action',
-      35: 'Comedy',
-      18: 'Drama',
-      27: 'Horror',
-      10749: 'Romance',
-      878: 'Sci-Fi',
-    };
-    return genreMap[genreId] ?? 'Unknown';
   }
 
   @override

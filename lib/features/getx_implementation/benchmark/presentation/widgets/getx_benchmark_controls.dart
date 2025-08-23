@@ -50,14 +50,16 @@ class GetXBenchmarkControls extends StatelessWidget {
           return Column(
             children: [
               Text(
-                  'Processing Cycle: ${controller.currentProcessingCycle.value}'),
+                  'Cycle: ${controller.cpuProcessingState.value.cycleCount}/600'),
               Text(
-                  'Current Step: ${controller.processingState.value.processingStep}/5'),
-              if (controller.processingState.value.currentGenre.isNotEmpty)
-                Text('Genre: ${controller.processingState.value.currentGenre}'),
-              if (controller.processingState.value.calculatedMetrics.isNotEmpty)
+                  'Current Step: ${controller.cpuProcessingState.value.processingStep}/5'),
+              if (controller.cpuProcessingState.value.currentGenre.isNotEmpty)
                 Text(
-                    'Avg Rating: ${controller.processingState.value.calculatedMetrics['averageRating']?.toStringAsFixed(2) ?? 'N/A'}'),
+                    'Genre: ${controller.cpuProcessingState.value.currentGenre}'),
+              if (controller
+                  .cpuProcessingState.value.calculatedMetrics.isNotEmpty)
+                Text(
+                    'Avg Rating: ${controller.cpuProcessingState.value.calculatedMetrics['averageRating']?.toStringAsFixed(2) ?? 'N/A'}'),
             ],
           );
         case ScenarioType.memoryStateHistory:
@@ -73,11 +75,13 @@ class GetXBenchmarkControls extends StatelessWidget {
         case ScenarioType.uiGranularUpdates:
           return Column(
             children: [
-              Text('Frame: ${controller.frameCounter.value}/1800'),
+              Text(
+                  'Frame: ${controller.frameCounter.value}/3750 (30s @ 120fps)'),
               Text('UI Elements: ${controller.uiElementStates.length}'),
               if (controller.lastUpdatedMovieIds.isNotEmpty)
                 Text(
                     'Last Updated: ${controller.lastUpdatedMovieIds.length} items'),
+              const Text('Level: Heavy (Max Performance Test)'),
             ],
           );
       }
