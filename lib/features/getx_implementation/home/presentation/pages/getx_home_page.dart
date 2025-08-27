@@ -33,9 +33,10 @@ class GetXHomePage extends StatelessWidget {
                 Expanded(
                   child: GetXScenarioSelector(
                     selectedScenario: homeController.selectedScenario.value,
-                    dataSize: homeController.dataSize.value,
-                    onScenarioSelected: (scenario, size) {
-                      homeController.selectScenario(scenario, size);
+                    onScenarioSelected: (
+                      scenario,
+                    ) {
+                      homeController.selectScenario(scenario, 1000);
                     },
                   ),
                 ),

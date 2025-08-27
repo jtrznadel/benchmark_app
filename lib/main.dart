@@ -20,10 +20,15 @@ class MyApp extends StatelessWidget {
         ),
       ],
       child: GetMaterialApp(
-        title: 'MovieDB Benchmark - BLoC vs GetX',
+        title: 'Flutter State Management Benchmarking App',
         theme: ThemeData(
           primarySwatch: Colors.blue,
           brightness: Brightness.light,
+          useMaterial3: true,
+          appBarTheme: const AppBarTheme(
+            centerTitle: true,
+            elevation: 0,
+          ),
         ),
         home: const LibrarySelectorPage(),
         debugShowCheckedModeBanner: false,

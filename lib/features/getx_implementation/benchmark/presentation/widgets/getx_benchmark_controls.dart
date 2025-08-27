@@ -121,32 +121,32 @@ class GetXBenchmarkControls extends StatelessWidget {
       );
     }
 
-    if (scenarioType == ScenarioType.uiGranularUpdates) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          ElevatedButton(
-            onPressed: () {
-              final movieIds =
-                  controller.movies.take(10).map((m) => m.id).toList();
-              controller.updateMovieLikeStatus(movieIds);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
-            child: const Text('Manual Like Update'),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () {
-              final movieIds =
-                  controller.movies.take(5).map((m) => m.id).toList();
-              controller.updateMovieProgress(movieIds);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
-            child: const Text('Manual Progress Update'),
-          ),
-        ],
-      );
-    }
+    // if (scenarioType == ScenarioType.uiGranularUpdates) {
+    //   return Row(
+    //     mainAxisAlignment: MainAxisAlignment.center,
+    //     children: [
+    //       ElevatedButton(
+    //         onPressed: () {
+    //           final movieIds =
+    //               controller.movies.take(10).map((m) => m.id).toList();
+    //           controller.updateMovieLikeStatus(movieIds);
+    //         },
+    //         style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
+    //         child: const Text('Manual Like Update'),
+    //       ),
+    //       const SizedBox(width: 8),
+    //       ElevatedButton(
+    //         onPressed: () {
+    //           final movieIds =
+    //               controller.movies.take(5).map((m) => m.id).toList();
+    //           controller.updateMovieProgress(movieIds);
+    //         },
+    //         style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
+    //         child: const Text('Manual Progress Update'),
+    //       ),
+    //     ],
+    //   );
+    // }
 
     return const SizedBox.shrink();
   }

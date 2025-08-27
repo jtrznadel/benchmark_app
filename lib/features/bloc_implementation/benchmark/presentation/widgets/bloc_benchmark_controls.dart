@@ -115,32 +115,32 @@ class BlocBenchmarkControls extends StatelessWidget {
       );
     }
 
-    if (scenarioType == ScenarioType.uiGranularUpdates) {
-      return Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          ElevatedButton(
-            onPressed: () {
-              final movieIds = state.movies.take(10).map((m) => m.id).toList();
-              context
-                  .read<BenchmarkBloc>()
-                  .add(UpdateMovieLikeStatus(movieIds));
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-            child: const Text('Manual Like Update'),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () {
-              final movieIds = state.movies.take(5).map((m) => m.id).toList();
-              context.read<BenchmarkBloc>().add(UpdateMovieProgress(movieIds));
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-            child: const Text('Manual Progress Update'),
-          ),
-        ],
-      );
-    }
+    // if (scenarioType == ScenarioType.uiGranularUpdates) {
+    //   return Row(
+    //     mainAxisAlignment: MainAxisAlignment.center,
+    //     children: [
+    //       ElevatedButton(
+    //         onPressed: () {
+    //           final movieIds = state.movies.take(10).map((m) => m.id).toList();
+    //           context
+    //               .read<BenchmarkBloc>()
+    //               .add(UpdateMovieLikeStatus(movieIds));
+    //         },
+    //         style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+    //         child: const Text('Manual Like Update'),
+    //       ),
+    //       const SizedBox(width: 8),
+    //       ElevatedButton(
+    //         onPressed: () {
+    //           final movieIds = state.movies.take(5).map((m) => m.id).toList();
+    //           context.read<BenchmarkBloc>().add(UpdateMovieProgress(movieIds));
+    //         },
+    //         style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+    //         child: const Text('Manual Progress Update'),
+    //       ),
+    //     ],
+    //   );
+    // }
 
     return const SizedBox.shrink();
   }

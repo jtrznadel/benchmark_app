@@ -33,12 +33,11 @@ class BlocHomePage extends StatelessWidget {
                 Expanded(
                   child: BlocScenarioSelector(
                     selectedScenario: state.selectedScenario,
-                    dataSize: state.dataSize,
-                    onScenarioSelected: (scenario, size) {
+                    onScenarioSelected: (scenario) {
                       context.read<HomeBloc>().add(
                             SelectScenario(
                               scenarioType: scenario,
-                              dataSize: size,
+                              dataSize: 1000,
                             ),
                           );
                     },
